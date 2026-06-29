@@ -20,6 +20,7 @@ automatically to make development convenient):
 from __future__ import annotations
 
 import os
+import warnings
 from dataclasses import dataclass, field
 from urllib.parse import urlsplit
 
@@ -88,6 +89,11 @@ def load_settings() -> Settings:
         raise ConfigError(
             "GHOST_STAFF_ACCESS_TOKEN must be in 'id:secret' form "
             "(copy it from a user's profile page in Ghost Admin)."
+        )
+    if not admin_url.lower().startswith("https://"):
+        warnings.warn(
+            "GHOST_ADMIN_URL is not HTTPS; the Admin API token will be sent in plaintext.",
+            stacklevel=2,
         )
     api_version = _normalize_version(os.environ.get("GHOST_API_VERSION", ""))
     return Settings(admin_url=admin_url, staff_token=staff_token, api_version=api_version)

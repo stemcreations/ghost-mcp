@@ -13,17 +13,26 @@ from typing import Any
 
 from ghost_mcp.admin.client import GhostAdminClient
 
+#: Markers for settings keys that carry credentials; never surfaced by these helpers.
+_SECRET_MARKERS = ("secret", "password", "api_key", "_hash", "stripe", "mailgun", "token")
+
+
+def _is_secret(key: str) -> bool:
+    return any(marker in key for marker in _SECRET_MARKERS)
+
 
 def _flatten(body: dict[str, Any]) -> dict[str, Any]:
     """Turn the ``{settings: [{key, value}]}`` envelope into a ``{key: value}`` map.
 
-    Rows without a ``key`` (or that aren't objects) are skipped, so a single
-    malformed entry can't abort the whole read or update.
+    Rows without a ``key`` (or that aren't objects) are skipped — so a single
+    malformed entry can't abort the whole read — and credential-bearing keys
+    (Stripe/Mailgun secrets, password, hashes, …) are filtered out as defence in
+    depth, so secrets never reach a caller even if the tool's allow-list is bypassed.
     """
     return {
         item["key"]: item.get("value")
         for item in body.get("settings", [])
-        if isinstance(item, dict) and "key" in item
+        if isinstance(item, dict) and "key" in item and not _is_secret(item["key"])
     }
 
 

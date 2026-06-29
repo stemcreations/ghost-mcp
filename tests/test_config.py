@@ -2,7 +2,7 @@
 
 import pytest
 
-from ghost_mcp.config import DEFAULT_API_VERSION, Settings, _normalize_version
+from ghost_mcp.config import DEFAULT_API_VERSION, Settings, _normalize_version, load_settings
 
 
 @pytest.mark.parametrize(
@@ -50,3 +50,10 @@ def test_site_url_is_robust() -> None:
     }
     for admin_url, expected in cases.items():
         assert Settings(admin_url=admin_url, staff_token="a:b").site_url == expected
+
+
+def test_load_settings_warns_on_non_https(monkeypatch) -> None:
+    monkeypatch.setenv("GHOST_ADMIN_URL", "http://blog.example.com")
+    monkeypatch.setenv("GHOST_STAFF_ACCESS_TOKEN", "id:secret")
+    with pytest.warns(UserWarning, match="HTTPS"):
+        load_settings()

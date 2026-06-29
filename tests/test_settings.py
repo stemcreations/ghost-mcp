@@ -64,3 +64,16 @@ def test_public_settings_never_expose_secrets() -> None:
 def test_flatten_skips_malformed_rows() -> None:
     body = {"settings": [{"key": "title", "value": "X"}, {"value": "no key"}, "garbage"]}
     assert settings_api._flatten(body) == {"title": "X"}
+
+
+def test_flatten_drops_secret_keys() -> None:
+    body = {
+        "settings": [
+            {"key": "title", "value": "X"},
+            {"key": "stripe_secret_key", "value": "sk_live_x"},
+            {"key": "mailgun_api_key", "value": "abc"},
+            {"key": "password", "value": "p"},
+            {"key": "public_hash", "value": "h"},
+        ]
+    }
+    assert settings_api._flatten(body) == {"title": "X"}

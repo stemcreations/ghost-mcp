@@ -6,18 +6,22 @@ to. The result is trimmed for size — a full page plus theme CSS is large, and 
 of it (editor-card styles, inline scripts, body text) adds nothing to a styling
 decision.
 
-The markup is returned as a *skeleton*: an indented outline of tags with their ids
-and classes, text and scripts stripped. That is what lets the model write CSS
-against selectors that actually exist instead of guessing.
+Because the URL to fetch is caller-supplied, every request is guarded against SSRF:
+only ``http``/``https`` is allowed, private/loopback/link-local/metadata hosts are
+refused (including across redirects), and the response size is capped.
 """
 
 from __future__ import annotations
 
+import ipaddress
+import socket
 from dataclasses import dataclass, field
-from urllib.parse import urljoin
+from urllib.parse import urljoin, urlsplit
 
 import httpx
 from bs4 import BeautifulSoup, Tag
+
+from ghost_mcp.errors import GhostError
 
 #: Elements whose contents carry no styling signal; dropped from the skeleton.
 _SKIP_TAGS = {"script", "style", "noscript", "svg", "path", "template", "link", "meta"}
@@ -25,6 +29,10 @@ _SKIP_TAGS = {"script", "style", "noscript", "svg", "path", "template", "link", 
 #: Stylesheets matching these fragments are Ghost's editor-card styles, which only
 #: apply to posts using Koenig cards. Skipped unless such cards appear on the page.
 _CARD_CSS_MARKERS = ("cards.min.css", "/public/cards")
+
+_ALLOWED_SCHEMES = {"http", "https"}
+_MAX_RESPONSE_BYTES = 5_000_000
+_MAX_REDIRECTS = 5
 
 
 @dataclass
@@ -60,6 +68,61 @@ class ThemeStructure:
         }
 
 
+def _host_is_blocked(host: str) -> bool:
+    """True if a hostname resolves to a private/loopback/link-local/reserved address."""
+    try:
+        infos = socket.getaddrinfo(host, None)
+    except OSError:
+        return True  # unresolvable → refuse
+    for info in infos:
+        ip = ipaddress.ip_address(info[4][0])
+        if (
+            ip.is_private
+            or ip.is_loopback
+            or ip.is_link_local
+            or ip.is_reserved
+            or ip.is_multicast
+            or ip.is_unspecified
+        ):
+            return True
+    return False
+
+
+def _validate_public_url(url: str) -> None:
+    """Refuse non-http(s) schemes and private/unresolvable hosts (SSRF guard)."""
+    parts = urlsplit(url)
+    if parts.scheme not in _ALLOWED_SCHEMES:
+        raise GhostError(f"refusing to fetch non-http(s) URL: {url!r}")
+    if not parts.hostname or _host_is_blocked(parts.hostname):
+        raise GhostError(f"refusing to fetch a private or unresolvable host: {url!r}")
+
+
+def _fetch(url: str, *, timeout: float) -> tuple[str, int, str]:
+    """Fetch a public URL safely, returning ``(final_url, status_code, text)``.
+
+    Validates every redirect hop, so a public URL can't bounce the request to an
+    internal host, and stops reading once the response exceeds the size cap.
+    """
+    redirects = 0
+    while True:
+        _validate_public_url(url)
+        with httpx.stream("GET", url, timeout=timeout, follow_redirects=False) as response:
+            if response.is_redirect:
+                location = response.headers.get("location")
+                redirects += 1
+                if not location or redirects > _MAX_REDIRECTS:
+                    raise GhostError(f"too many or invalid redirects fetching {url!r}")
+                url = urljoin(url, location)
+                continue
+            data = bytearray()
+            for chunk in response.iter_bytes():
+                data += chunk
+                if len(data) > _MAX_RESPONSE_BYTES:
+                    raise GhostError(f"response exceeds {_MAX_RESPONSE_BYTES} bytes")
+            text = data.decode(response.encoding or "utf-8", errors="replace")
+            return str(response.url), response.status_code, text
+
+
 def fetch_theme_structure(
     blog_url: str,
     path: str = "/",
@@ -80,11 +143,15 @@ def fetch_theme_structure(
     Returns:
         A :class:`ThemeStructure` describing the page's markup skeleton, the class
         names in use, and the relevant stylesheets.
+
+    Raises:
+        GhostError: if the URL (or a redirect target) is non-http(s), points at a
+            private/unresolvable host, or the response is too large.
     """
     root = blog_url if blog_url.endswith("/") else blog_url + "/"
     page_url = urljoin(root, path.lstrip("/"))
-    response = httpx.get(page_url, timeout=timeout, follow_redirects=True)
-    soup = BeautifulSoup(response.text, "html.parser")
+    final_url, status_code, text = _fetch(page_url, timeout=timeout)
+    soup = BeautifulSoup(text, "html.parser")
 
     class_names = _collect_class_names(soup)
     uses_cards = any(name.startswith("kg-") for name in class_names)
@@ -94,16 +161,16 @@ def fetch_theme_structure(
     for href in _stylesheet_hrefs(soup):
         if not include_card_css and not uses_cards and _is_card_css(href):
             continue
-        sheet_url = urljoin(str(response.url), href)
+        sheet_url = urljoin(final_url, href)
         try:
-            css = httpx.get(sheet_url, timeout=timeout, follow_redirects=True).text
-        except httpx.HTTPError:
+            _, _, css = _fetch(sheet_url, timeout=timeout)
+        except (httpx.HTTPError, GhostError):
             continue
         stylesheets.append(Stylesheet(url=sheet_url, css=css))
 
     return ThemeStructure(
-        url=str(response.url),
-        status_code=response.status_code,
+        url=final_url,
+        status_code=status_code,
         skeleton=skeleton,
         class_names=class_names,
         stylesheets=stylesheets,
