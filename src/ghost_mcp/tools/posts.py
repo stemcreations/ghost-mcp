@@ -1,4 +1,10 @@
-"""Tools for managing blog posts: list, read, create, update, and delete."""
+"""Tools for managing blog posts: list, read, create, update, delete, and preview.
+
+Posts carry a ``preview_url`` — Ghost's native draft preview (``{site}/p/{uuid}/``),
+which renders the post in the active theme exactly as it will look when published.
+It works for drafts and is shareable, so it's the way to review a post before it
+goes live.
+"""
 
 from __future__ import annotations
 
@@ -9,8 +15,8 @@ from ghost_mcp.admin.client import GhostAdminClient
 from ghost_mcp.config import load_settings
 
 
-def _summary(post: dict) -> dict:
-    return {
+def _summary(post: dict, site_url: str | None = None) -> dict:
+    data = {
         "id": post.get("id"),
         "title": post.get("title"),
         "slug": post.get("slug"),
@@ -18,11 +24,15 @@ def _summary(post: dict) -> dict:
         "url": post.get("url"),
         "updated_at": post.get("updated_at"),
     }
+    uuid = post.get("uuid")
+    if site_url and uuid:
+        data["preview_url"] = f"{site_url}/p/{uuid}/"
+    return data
 
 
-def _detail(post: dict) -> dict:
+def _detail(post: dict, site_url: str | None = None) -> dict:
     return {
-        **_summary(post),
+        **_summary(post, site_url),
         "html": post.get("html"),
         "excerpt": post.get("custom_excerpt") or post.get("excerpt"),
         "meta_title": post.get("meta_title"),
@@ -77,14 +87,16 @@ def register(mcp: FastMCP) -> None:
             order: Sort order, e.g. ``published_at desc``.
 
         Returns:
-            A list of post summaries and the pagination block.
+            A list of post summaries (each with a ``preview_url``) and the pagination
+            block.
         """
-        with GhostAdminClient(load_settings()) as client:
+        settings = load_settings()
+        with GhostAdminClient(settings) as client:
             result = posts_api.browse_posts(
                 client, filter=filter, limit=limit, page=page, order=order
             )
         return {
-            "posts": [_summary(p) for p in result.get("posts", [])],
+            "posts": [_summary(p, settings.site_url) for p in result.get("posts", [])],
             "pagination": result.get("meta", {}).get("pagination"),
         }
 
@@ -92,13 +104,15 @@ def register(mcp: FastMCP) -> None:
     def get_post(post_id: str | None = None, slug: str | None = None) -> dict:
         """Read a single post by id or slug, including its rendered HTML.
 
-        Provide either ``post_id`` or ``slug``.
+        Provide either ``post_id`` or ``slug``. The result includes a ``preview_url``
+        for viewing the post in the active theme.
         """
         if not post_id and not slug:
             return {"error": "Provide either post_id or slug."}
-        with GhostAdminClient(load_settings()) as client:
+        settings = load_settings()
+        with GhostAdminClient(settings) as client:
             post = posts_api.read_post(client, slug or post_id, slug=bool(slug))
-        return _detail(post)
+        return _detail(post, settings.site_url)
 
     @mcp.tool
     def create_post(
@@ -117,14 +131,16 @@ def register(mcp: FastMCP) -> None:
         ``tags`` are given as names and created if they don't already exist.
         ``meta_title``/``meta_description`` set the post's search-snippet metadata.
 
-        Returns the created post's summary (id, slug, status, url).
+        Returns the created post's summary, including a ``preview_url`` for reviewing
+        the draft in the active theme before publishing.
         """
         fields = _build_fields(
             title, status, excerpt, tags, feature_image, meta_title, meta_description
         )
-        with GhostAdminClient(load_settings()) as client:
+        settings = load_settings()
+        with GhostAdminClient(settings) as client:
             created = posts_api.create_post(client, fields, html=html or None)
-        return _summary(created)
+        return _summary(created, settings.site_url)
 
     @mcp.tool
     def update_post(
@@ -141,14 +157,15 @@ def register(mcp: FastMCP) -> None:
         """Update an existing post by id; only the fields you pass are changed.
 
         Pass ``status="published"`` to publish a draft, or ``status="draft"`` to
-        unpublish. Returns the updated post summary.
+        unpublish. Returns the updated post summary, including its ``preview_url``.
         """
         fields = _build_fields(
             title, status, excerpt, tags, feature_image, meta_title, meta_description
         )
-        with GhostAdminClient(load_settings()) as client:
+        settings = load_settings()
+        with GhostAdminClient(settings) as client:
             updated = posts_api.update_post(client, post_id, fields, html=html)
-        return _summary(updated)
+        return _summary(updated, settings.site_url)
 
     @mcp.tool
     def delete_post(post_id: str) -> dict:
