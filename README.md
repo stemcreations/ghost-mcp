@@ -55,7 +55,7 @@ Activating a theme is intentionally **not** a tool — it changes the live site,
 ## Setup
 
 ```bash
-git clone <repo> && cd ghost-mcp
+git clone https://github.com/stemcreations/ghost-mcp.git && cd ghost-mcp
 uv sync                  # creates .venv and installs everything
 ```
 
