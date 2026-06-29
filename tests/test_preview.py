@@ -27,3 +27,18 @@ def test_post_content_is_rendered_unescaped() -> None:
 def test_no_unrendered_handlebars() -> None:
     for html in render_theme(FIXTURE).values():
         assert "{{" not in html
+
+
+def test_layout_directive_cannot_traverse_outside_theme(tmp_path) -> None:
+    # A file outside the theme dir that a malicious layout directive must NOT read.
+    (tmp_path / "secret.hbs").write_text("TRAVERSAL_SECRET_MARKER")
+    theme = tmp_path / "mytheme"
+    theme.mkdir()
+    (theme / "package.json").write_text('{"name": "mytheme"}')
+    (theme / "default.hbs").write_text("<html>{{{body}}}</html>")
+    (theme / "index.hbs").write_text("{{!< ../secret}}\n<p>body</p>")
+    (theme / "post.hbs").write_text("{{#post}}{{title}}{{/post}}")
+    (theme / "page.hbs").write_text("{{#post}}{{title}}{{/post}}")
+
+    html = render_theme(theme)["index"]
+    assert "TRAVERSAL_SECRET_MARKER" not in html  # traversal blocked, no file read

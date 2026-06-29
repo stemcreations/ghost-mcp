@@ -28,7 +28,9 @@ try:  # lets helpers emit raw HTML (e.g. post content) without escaping
 except ImportError:  # pragma: no cover - depends on pybars internals
     strlist = None
 
-_LAYOUT_DIRECTIVE = re.compile(r"\{\{!<\s*([\w./-]+)\s*\}\}")
+# Layout name is a bare word (e.g. ``default``) — no ``/`` or ``.`` so a malicious
+# template can't escape the theme directory via ``{{!< ../../some/file }}``.
+_LAYOUT_DIRECTIVE = re.compile(r"\{\{!<\s*([\w-]+)\s*\}\}")
 _compiler = Compiler()
 
 #: Templates rendered for preview, each with the context Ghost would give it.

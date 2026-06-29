@@ -7,6 +7,7 @@ import httpx
 from ghost_mcp.admin import settings as settings_api
 from ghost_mcp.admin.client import GhostAdminClient
 from ghost_mcp.config import Settings
+from ghost_mcp.tools.settings import _PUBLIC_KEYS
 
 SETTINGS = Settings(admin_url="https://example.com", staff_token="abc:" + "ab" * 32)
 
@@ -45,3 +46,16 @@ def test_update_settings_sends_key_value_array() -> None:
     result = settings_api.update_settings(_client(handler), {"title": "New"})
     assert captured["body"] == {"settings": [{"key": "title", "value": "New"}]}
     assert result["title"] == "New"
+
+
+def test_public_settings_never_expose_secrets() -> None:
+    # get_site_settings projects only these keys; none may be a credential.
+    secrets = {
+        "password",
+        "stripe_secret_key",
+        "stripe_connect_secret_key",
+        "mailgun_api_key",
+        "members_secret",
+        "public_hash",
+    }
+    assert not (set(_PUBLIC_KEYS) & secrets)

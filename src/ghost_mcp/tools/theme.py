@@ -4,6 +4,8 @@ Activation is deliberately NOT exposed as a tool: it changes the live site, so i
 stays a manual step (Ghost Admin, or the Python helper) for safety.
 """
 
+import atexit
+import shutil
 import tempfile
 from pathlib import Path
 
@@ -14,6 +16,25 @@ from ghost_mcp.admin.client import GhostAdminClient
 from ghost_mcp.config import load_settings
 from ghost_mcp.theme.builder import ThemeSpec, build_theme, package_theme
 from ghost_mcp.theme.preview import serve_preview, write_preview
+
+# At most one preview server runs at a time. Each new preview replaces and cleans up
+# the previous one (server + rendered files); the active one is also torn down at exit.
+_active_preview: dict = {"server": None, "out_dir": None}
+
+
+def _stop_active_preview() -> None:
+    """Shut down the current preview server and remove its rendered files."""
+    server = _active_preview.get("server")
+    if server is not None:
+        server.shutdown()
+    out_dir = _active_preview.get("out_dir")
+    if out_dir is not None:
+        shutil.rmtree(out_dir, ignore_errors=True)
+    _active_preview["server"] = None
+    _active_preview["out_dir"] = None
+
+
+atexit.register(_stop_active_preview)
 
 
 def register(mcp: FastMCP) -> None:
@@ -84,9 +105,12 @@ def register(mcp: FastMCP) -> None:
         Returns:
             A mapping with the base ``preview_url`` and the URL of each rendered page.
         """
+        _stop_active_preview()
         out_dir = tempfile.mkdtemp(prefix="ghost-mcp-preview-")
         written = write_preview(theme_path, out_dir)
-        url, _server = serve_preview(out_dir)
+        url, server = serve_preview(out_dir)
+        _active_preview["server"] = server
+        _active_preview["out_dir"] = out_dir
         return {
             "preview_url": url,
             "pages": {name: f"{url}{path.name}" for name, path in written.items()},
