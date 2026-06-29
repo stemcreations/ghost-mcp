@@ -171,6 +171,12 @@ Or install the git hook to run all three automatically before each commit:
 uv run pre-commit install
 ```
 
+## Security
+
+Ghost MCP runs locally and never exposes your staff token through any tool. See
+[SECURITY.md](SECURITY.md) for the security model, the prompt-injection trust
+boundary, and how to report a vulnerability.
+
 ## License
 
 MIT — see [LICENSE](LICENSE).
