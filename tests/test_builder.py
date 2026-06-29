@@ -4,6 +4,7 @@ import json
 
 import pytest
 
+from ghost_mcp.errors import ThemeError
 from ghost_mcp.theme.builder import ThemeSpec, build_theme
 from ghost_mcp.theme.preview import render_theme
 
@@ -46,7 +47,7 @@ def test_custom_styles_are_appended(tmp_path) -> None:
 
 def test_block_params_template_is_rejected(tmp_path) -> None:
     spec = ThemeSpec(name="t", templates={"index": "{{#foreach posts as |p|}}{{/foreach}}"})
-    with pytest.raises(ValueError):
+    with pytest.raises(ThemeError):
         build_theme(spec, tmp_path)
 
 

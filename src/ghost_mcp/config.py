@@ -20,7 +20,7 @@ automatically to make development convenient):
 from __future__ import annotations
 
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from dotenv import load_dotenv
 
@@ -35,7 +35,7 @@ class Settings:
     """Validated server configuration."""
 
     admin_url: str
-    staff_token: str
+    staff_token: str = field(repr=False)  # keep the credential out of repr()/logs
     api_version: str = DEFAULT_API_VERSION
 
     @property

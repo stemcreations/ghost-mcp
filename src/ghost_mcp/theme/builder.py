@@ -20,6 +20,8 @@ import zipfile
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from ghost_mcp.errors import ThemeError
+
 #: Detects Handlebars block params, which the local previewer cannot render.
 _BLOCK_PARAMS = re.compile(r"\bas\s+\|")
 
@@ -207,7 +209,7 @@ def _slugify(name: str) -> str:
 
 def _ensure_previewable(name: str, source: str) -> None:
     if _BLOCK_PARAMS.search(source):
-        raise ValueError(
+        raise ThemeError(
             f"template '{name}' uses Handlebars block params (as |x|), which the local "
             "previewer cannot render; rewrite the loop without block params."
         )
@@ -225,7 +227,7 @@ def build_theme(spec: ThemeSpec, out_dir: str | Path) -> Path:
         The path to the generated theme directory.
 
     Raises:
-        ValueError: if an overridden template uses Handlebars block params.
+        ThemeError: if an overridden template uses Handlebars block params.
     """
     slug = _slugify(spec.name)
     theme = Path(out_dir) / slug
@@ -270,11 +272,11 @@ def package_theme(source_dir: str | Path) -> bytes:
         The ZIP archive as bytes.
 
     Raises:
-        FileNotFoundError: if the directory does not exist.
+        ThemeError: if the directory does not exist.
     """
     source = Path(source_dir)
     if not source.is_dir():
-        raise FileNotFoundError(f"theme directory not found: {source}")
+        raise ThemeError(f"theme directory not found: {source}")
     buffer = io.BytesIO()
     with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as archive:
         for path in sorted(source.rglob("*")):

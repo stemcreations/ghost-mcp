@@ -11,6 +11,8 @@ import time
 
 import jwt
 
+from ghost_mcp.errors import ConfigError
+
 #: Maximum token lifetime Ghost will accept, in seconds.
 MAX_TOKEN_TTL = 300
 
@@ -27,10 +29,10 @@ def mint_admin_token(staff_token: str, *, ttl_seconds: int = MAX_TOKEN_TTL) -> s
         A signed JWT for use in the ``Authorization: Ghost <token>`` header.
 
     Raises:
-        ValueError: if the staff token is not in ``id:secret`` form.
+        ConfigError: if the staff token is not in ``id:secret`` form.
     """
     if ":" not in staff_token:
-        raise ValueError("staff token must be in 'id:secret' form")
+        raise ConfigError("staff token must be in 'id:secret' form")
     key_id, secret = staff_token.split(":", 1)
     issued_at = int(time.time())
     return jwt.encode(

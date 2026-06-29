@@ -20,6 +20,10 @@ class ConfigError(GhostError):
     """Configuration is missing or malformed."""
 
 
+class ThemeError(GhostError):
+    """A theme could not be built, packaged, or previewed."""
+
+
 class GhostAPIError(GhostError):
     """The Ghost Admin API returned an error response.
 

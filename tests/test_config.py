@@ -33,3 +33,9 @@ def test_site_url_strips_ghost_path() -> None:
 def test_api_version_defaults() -> None:
     settings = Settings(admin_url="https://example.com", staff_token="a:b")
     assert settings.api_version == DEFAULT_API_VERSION
+
+
+def test_repr_hides_staff_token() -> None:
+    settings = Settings(admin_url="https://example.com", staff_token="id:supersecret")
+    assert "supersecret" not in repr(settings)
+    assert "id:" not in repr(settings)

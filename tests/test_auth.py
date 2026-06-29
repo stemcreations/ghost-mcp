@@ -4,6 +4,7 @@ import jwt
 import pytest
 
 from ghost_mcp.admin.auth import MAX_TOKEN_TTL, mint_admin_token
+from ghost_mcp.errors import ConfigError
 
 # A throwaway token: an arbitrary id and a valid hex secret.
 SAMPLE_TOKEN = "1234567890abcdef:" + "ab" * 32
@@ -32,5 +33,5 @@ def test_lifetime_is_capped_at_five_minutes() -> None:
 
 
 def test_malformed_token_is_rejected() -> None:
-    with pytest.raises(ValueError):
+    with pytest.raises(ConfigError):
         mint_admin_token("not-a-valid-token")
