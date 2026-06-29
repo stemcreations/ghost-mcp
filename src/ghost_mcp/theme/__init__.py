@@ -1,5 +1,17 @@
-"""Theme creation: build theme files and package them for upload."""
+"""Theme creation: build, preview, and package theme files for upload."""
 
 from ghost_mcp.theme.builder import package_theme
+from ghost_mcp.theme.preview import (
+    default_sample,
+    render_theme,
+    serve_preview,
+    write_preview,
+)
 
-__all__ = ["package_theme"]
+__all__ = [
+    "default_sample",
+    "package_theme",
+    "render_theme",
+    "serve_preview",
+    "write_preview",
+]

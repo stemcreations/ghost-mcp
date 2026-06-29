@@ -7,9 +7,10 @@ function and call it from :func:`register_all`.
 
 from fastmcp import FastMCP
 
-from ghost_mcp.tools import vision
+from ghost_mcp.tools import theme, vision
 
 
 def register_all(mcp: FastMCP) -> None:
     """Attach every tool group to the given server."""
     vision.register(mcp)
+    theme.register(mcp)
