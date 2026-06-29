@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-from ghost_mcp.theme.preview import render_theme
+from ghost_mcp.theme.preview import default_sample, render_theme
 
 FIXTURE = Path(__file__).parent / "fixtures" / "ghost-mcp-smoke-test"
 
@@ -42,3 +42,19 @@ def test_layout_directive_cannot_traverse_outside_theme(tmp_path) -> None:
 
     html = render_theme(theme)["index"]
     assert "TRAVERSAL_SECRET_MARKER" not in html  # traversal blocked, no file read
+
+
+def test_foreach_renders_else_block_on_empty_feed(tmp_path) -> None:
+    theme = tmp_path / "t"
+    theme.mkdir()
+    (theme / "package.json").write_text('{"name": "t"}')
+    (theme / "default.hbs").write_text("{{{body}}}")
+    (theme / "index.hbs").write_text("{{!< default}}{{#foreach posts}}ITEM{{else}}NONE{{/foreach}}")
+    (theme / "post.hbs").write_text("{{#post}}{{title}}{{/post}}")
+    (theme / "page.hbs").write_text("{{#post}}{{title}}{{/post}}")
+
+    sample = default_sample()
+    sample["posts"] = []
+    html = render_theme(theme, sample=sample)["index"]
+    assert "NONE" in html
+    assert "ITEM" not in html

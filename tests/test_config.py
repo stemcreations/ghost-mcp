@@ -39,3 +39,14 @@ def test_repr_hides_staff_token() -> None:
     settings = Settings(admin_url="https://example.com", staff_token="id:supersecret")
     assert "supersecret" not in repr(settings)
     assert "id:" not in repr(settings)
+
+
+def test_site_url_is_robust() -> None:
+    cases = {
+        "https://blog.example.com": "https://blog.example.com",
+        "https://myghost.io": "https://myghost.io",  # 'ghost' in the host must survive
+        "https://x.com/ghost/api/admin": "https://x.com",
+        "https://x.com/blog/ghost": "https://x.com/blog",  # subdirectory install
+    }
+    for admin_url, expected in cases.items():
+        assert Settings(admin_url=admin_url, staff_token="a:b").site_url == expected

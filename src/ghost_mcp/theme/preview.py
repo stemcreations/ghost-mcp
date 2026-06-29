@@ -132,7 +132,10 @@ def _build_helpers() -> dict:
         return value or ""
 
     def foreach(this, options, items):
-        return [options["fn"](item) for item in (items or [])]
+        items = items or []
+        if not items:
+            return options["inverse"](this)  # render the {{else}} block on an empty feed
+        return [options["fn"](item) for item in items]
 
     return {"asset": asset, "img_url": img_url, "foreach": foreach}
 

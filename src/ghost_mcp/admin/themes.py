@@ -11,7 +11,7 @@ to activate it.
 
 from __future__ import annotations
 
-from ghost_mcp.admin.client import GhostAdminClient, JSONDict
+from ghost_mcp.admin.client import GhostAdminClient, JSONDict, _single
 
 
 def list_themes(client: GhostAdminClient) -> list[JSONDict]:
@@ -39,12 +39,12 @@ def upload_theme(
         warnings Ghost reports for the theme.
     """
     files = {"file": (filename, zip_bytes, "application/zip")}
-    return _single(client.post("/themes/upload/", files=files))
+    return _single(client.post("/themes/upload/", files=files), "themes")
 
 
 def activate_theme(client: GhostAdminClient, name: str) -> JSONDict:
     """Activate an installed theme by name, making it the live theme."""
-    return _single(client.request("PUT", f"/themes/{name}/activate/"))
+    return _single(client.request("PUT", f"/themes/{name}/activate/"), "themes")
 
 
 def delete_theme(client: GhostAdminClient, name: str) -> None:
@@ -60,8 +60,3 @@ def download_theme(client: GhostAdminClient, name: str) -> bytes:
     reference.
     """
     return client.get_bytes(f"/themes/{name}/download/")
-
-
-def _single(payload: JSONDict) -> JSONDict:
-    themes = payload.get("themes") or []
-    return themes[0] if themes else {}

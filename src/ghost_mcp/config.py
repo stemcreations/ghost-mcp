@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass, field
+from urllib.parse import urlsplit
 
 from dotenv import load_dotenv
 
@@ -48,8 +49,15 @@ class Settings:
 
     @property
     def site_url(self) -> str:
-        """The public site root, used by the vision tools to fetch rendered pages."""
-        return self.admin_url.split("/ghost")[0].rstrip("/")
+        """The public site root, used by the vision tools to fetch rendered pages.
+
+        Parsed properly (not a raw string split) so the host can't be corrupted and
+        a subdirectory install is preserved.
+        """
+        parts = urlsplit(self.admin_url)
+        marker = parts.path.find("/ghost")
+        base_path = (parts.path[:marker] if marker != -1 else parts.path).rstrip("/")
+        return f"{parts.scheme}://{parts.netloc}{base_path}"
 
 
 def load_settings() -> Settings:
