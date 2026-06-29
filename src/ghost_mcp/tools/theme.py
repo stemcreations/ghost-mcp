@@ -12,10 +12,9 @@ from pathlib import Path
 from fastmcp import FastMCP
 
 from ghost_mcp.admin import themes
-from ghost_mcp.admin.client import GhostAdminClient
-from ghost_mcp.config import load_settings
 from ghost_mcp.theme.builder import ThemeSpec, build_theme, package_theme
 from ghost_mcp.theme.preview import serve_preview, write_preview
+from ghost_mcp.tools._client import admin_client
 
 # At most one preview server runs at a time. Each new preview replaces and cleans up
 # the previous one (server + rendered files); the active one is also torn down at exit.
@@ -132,10 +131,9 @@ def register(mcp: FastMCP) -> None:
             validation ``errors``/``warnings``.
         """
         zip_bytes = package_theme(theme_path)
-        with GhostAdminClient(load_settings()) as client:
-            uploaded = themes.upload_theme(
-                client, zip_bytes, filename=f"{Path(theme_path).name}.zip"
-            )
+        uploaded = themes.upload_theme(
+            admin_client(), zip_bytes, filename=f"{Path(theme_path).name}.zip"
+        )
         return {
             "name": uploaded.get("name"),
             "active": uploaded.get("active"),
@@ -150,8 +148,7 @@ def register(mcp: FastMCP) -> None:
     @mcp.tool
     def list_themes() -> dict:
         """List the themes installed on the blog and which one is active."""
-        with GhostAdminClient(load_settings()) as client:
-            installed = themes.list_themes(client)
+        installed = themes.list_themes(admin_client())
         return {
             "themes": [{"name": t.get("name"), "active": t.get("active")} for t in installed],
             "active": next((t.get("name") for t in installed if t.get("active")), None),
@@ -167,8 +164,7 @@ def register(mcp: FastMCP) -> None:
         Args:
             name: The name of the installed theme to download.
         """
-        with GhostAdminClient(load_settings()) as client:
-            data = themes.download_theme(client, name)
+        data = themes.download_theme(admin_client(), name)
         path = Path(tempfile.mkdtemp(prefix="ghost-mcp-download-")) / f"{name}.zip"
         path.write_bytes(data)
         return {"path": str(path), "bytes": len(data)}

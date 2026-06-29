@@ -8,8 +8,8 @@ from __future__ import annotations
 
 from fastmcp import FastMCP
 
-from ghost_mcp.admin.client import GhostAdminClient
-from ghost_mcp.config import load_settings
+from ghost_mcp.errors import GhostError
+from ghost_mcp.tools._client import admin_client
 
 
 def _summary(tag: dict) -> dict:
@@ -70,8 +70,7 @@ def register(mcp: FastMCP) -> None:
         params: dict = {"limit": limit, "page": page, "order": order, "include": "count.posts"}
         if filter:
             params["filter"] = filter
-        with GhostAdminClient(load_settings()) as client:
-            result = client.browse("tags", params=params)
+        result = admin_client().browse("tags", params=params)
         return {
             "tags": [_summary(t) for t in result.get("tags", [])],
             "pagination": result.get("meta", {}).get("pagination"),
@@ -81,11 +80,10 @@ def register(mcp: FastMCP) -> None:
     def get_tag(tag_id: str | None = None, slug: str | None = None) -> dict:
         """Read a single tag by id or slug. Provide either ``tag_id`` or ``slug``."""
         if not tag_id and not slug:
-            return {"error": "Provide either tag_id or slug."}
-        with GhostAdminClient(load_settings()) as client:
-            tag = client.read(
-                "tags", slug or tag_id, slug=bool(slug), params={"include": "count.posts"}
-            )
+            raise GhostError("Provide either tag_id or slug.")
+        tag = admin_client().read(
+            "tags", slug or tag_id, slug=bool(slug), params={"include": "count.posts"}
+        )
         return _summary(tag)
 
     @mcp.tool
@@ -103,8 +101,7 @@ def register(mcp: FastMCP) -> None:
         created tag's summary.
         """
         fields = _fields(name, description, slug, meta_title, meta_description, feature_image)
-        with GhostAdminClient(load_settings()) as client:
-            created = client.add("tags", fields)
+        created = admin_client().add("tags", fields)
         return _summary(created)
 
     @mcp.tool
@@ -119,13 +116,11 @@ def register(mcp: FastMCP) -> None:
     ) -> dict:
         """Update a tag by id; only the fields you pass are changed."""
         fields = _fields(name, description, slug, meta_title, meta_description, feature_image)
-        with GhostAdminClient(load_settings()) as client:
-            updated = client.edit("tags", tag_id, fields)
+        updated = admin_client().edit("tags", tag_id, fields)
         return _summary(updated)
 
     @mcp.tool
     def delete_tag(tag_id: str) -> dict:
         """Delete a tag by id. Posts keep existing; they just lose the tag."""
-        with GhostAdminClient(load_settings()) as client:
-            client.delete("tags", tag_id)
+        admin_client().delete("tags", tag_id)
         return {"deleted": tag_id}

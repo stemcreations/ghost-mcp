@@ -10,8 +10,7 @@ from __future__ import annotations
 from fastmcp import FastMCP
 
 from ghost_mcp.admin import settings as settings_api
-from ghost_mcp.admin.client import GhostAdminClient
-from ghost_mcp.config import load_settings
+from ghost_mcp.tools._client import admin_client
 
 #: The brand/SEO subset surfaced to the model (the full table holds ~99 keys,
 #: including secrets like Stripe and Mailgun credentials, which stay hidden).
@@ -48,8 +47,7 @@ def register(mcp: FastMCP) -> None:
         Open Graph and Twitter card fields). Use it to review the current state
         before updating, or to keep the blog aligned with the main site.
         """
-        with GhostAdminClient(load_settings()) as client:
-            current = settings_api.get_settings(client)
+        current = settings_api.get_settings(admin_client())
         return {key: current.get(key) for key in _PUBLIC_KEYS}
 
     @mcp.tool
@@ -90,8 +88,7 @@ def register(mcp: FastMCP) -> None:
         changes = {key: value for key, value in provided.items() if value is not None}
         if not changes:
             return {"updated": {}, "note": "No fields provided — nothing changed."}
-        with GhostAdminClient(load_settings()) as client:
-            updated = settings_api.update_settings(client, changes)
+        updated = settings_api.update_settings(admin_client(), changes)
         return {"updated": {key: updated.get(key) for key in changes}}
 
     @mcp.tool
@@ -108,6 +105,5 @@ def register(mcp: FastMCP) -> None:
             changes["accent_color"] = accent_color
         if not changes:
             return {"updated": {}, "note": "No fields provided — nothing changed."}
-        with GhostAdminClient(load_settings()) as client:
-            updated = settings_api.update_settings(client, changes)
+        updated = settings_api.update_settings(admin_client(), changes)
         return {"updated": {key: updated.get(key) for key in changes}}
