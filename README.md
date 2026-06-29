@@ -86,23 +86,56 @@ Interactively, with the MCP Inspector:
 uv run fastmcp dev src/ghost_mcp/server.py
 ```
 
-In Claude Desktop, add to your MCP servers config — put your credentials in the
-`env` block and no `.env` file is needed:
+### Connecting to Claude Desktop
+
+Add the server to the config file below, then **fully restart Claude Desktop** (it
+reads the config only at startup).
+
+| OS | Config file |
+|----|-------------|
+| Windows | `%APPDATA%\Claude\claude_desktop_config.json` |
+| macOS | `~/Library/Application Support/Claude/claude_desktop_config.json` |
+
+Use the **full path to `uv`** for `command` — clients often don't have it on their
+PATH. Find it with `(Get-Command uv).Source` (Windows PowerShell) or `which uv`
+(macOS/Linux). `--directory` points uv at the project, so the project's `.env` is
+loaded automatically (or pass credentials with an `env` block instead — see below).
+
+**Windows:**
 
 ```json
 {
   "mcpServers": {
     "ghost": {
-      "command": "uv",
-      "args": ["run", "ghost-mcp"],
-      "cwd": "/absolute/path/to/ghost-mcp",
-      "env": {
-        "GHOST_ADMIN_URL": "https://yourblog.example.com",
-        "GHOST_STAFF_ACCESS_TOKEN": "<id>:<secret>",
-        "GHOST_API_VERSION": "v6.0"
-      }
+      "command": "C:\\Users\\you\\.local\\bin\\uv.exe",
+      "args": ["run", "--directory", "C:\\path\\to\\ghost-mcp", "ghost-mcp"]
     }
   }
+}
+```
+
+**macOS / Linux:**
+
+```json
+{
+  "mcpServers": {
+    "ghost": {
+      "command": "/home/you/.local/bin/uv",
+      "args": ["run", "--directory", "/home/you/ghost-mcp", "ghost-mcp"]
+    }
+  }
+}
+```
+
+The same `command`/`args` work with any MCP client (Cline, Claude Code, …) — only the
+config-file location differs. To pass credentials through the client instead of a
+`.env`, add an `env` block to the server entry:
+
+```json
+"env": {
+  "GHOST_ADMIN_URL": "https://yourblog.example.com",
+  "GHOST_STAFF_ACCESS_TOKEN": "<id>:<secret>",
+  "GHOST_API_VERSION": "v6.0"
 }
 ```
 
