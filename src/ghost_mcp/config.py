@@ -72,7 +72,9 @@ def load_settings() -> Settings:
     ]
     if missing:
         raise ConfigError(
-            f"Missing required environment variable(s): {', '.join(missing)}. See .env.example."
+            f"Missing required environment variable(s): {', '.join(missing)}. "
+            'Set them in your MCP client\'s "env" config, or in a local .env file '
+            "(see .env.example)."
         )
     if ":" not in staff_token:
         raise ConfigError(

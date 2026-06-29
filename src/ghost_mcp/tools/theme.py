@@ -1,10 +1,18 @@
-"""Tools for generating, previewing, and (later) uploading Ghost themes."""
+"""Tools for generating, previewing, uploading, and listing Ghost themes.
+
+Activation is deliberately NOT exposed as a tool: it changes the live site, so it
+stays a manual step (Ghost Admin, or the Python helper) for safety.
+"""
 
 import tempfile
+from pathlib import Path
 
 from fastmcp import FastMCP
 
-from ghost_mcp.theme.builder import ThemeSpec, build_theme
+from ghost_mcp.admin import themes
+from ghost_mcp.admin.client import GhostAdminClient
+from ghost_mcp.config import load_settings
+from ghost_mcp.theme.builder import ThemeSpec, build_theme, package_theme
 from ghost_mcp.theme.preview import serve_preview, write_preview
 
 
@@ -33,7 +41,7 @@ def register(mcp: FastMCP) -> None:
         always be previewed locally.
 
         After generating, call ``preview_theme`` with the returned path to view it,
-        then upload and activate it to publish.
+        then ``upload_theme`` to install it (activation stays manual).
 
         Args:
             name: Human-readable theme name (slugified for the package name).
@@ -83,3 +91,60 @@ def register(mcp: FastMCP) -> None:
             "preview_url": url,
             "pages": {name: f"{url}{path.name}" for name, path in written.items()},
         }
+
+    @mcp.tool
+    def upload_theme(theme_path: str) -> dict:
+        """Package a theme directory and upload it to Ghost WITHOUT activating it.
+
+        The live site keeps its current theme — the uploaded theme is installed but
+        inactive, so it can be reviewed and activated manually. Ghost validates the
+        theme on upload; any errors or warnings are returned.
+
+        Args:
+            theme_path: Path to the theme directory to upload.
+
+        Returns:
+            The installed theme ``name``, its ``active`` flag (False), and any
+            validation ``errors``/``warnings``.
+        """
+        zip_bytes = package_theme(theme_path)
+        with GhostAdminClient(load_settings()) as client:
+            uploaded = themes.upload_theme(
+                client, zip_bytes, filename=f"{Path(theme_path).name}.zip"
+            )
+        return {
+            "name": uploaded.get("name"),
+            "active": uploaded.get("active"),
+            "errors": [e.get("rule") for e in (uploaded.get("errors") or [])],
+            "warnings": [w.get("rule") for w in (uploaded.get("warnings") or [])],
+            "note": (
+                "Uploaded but NOT activated. Activate it in Ghost Admin "
+                "(Settings → Design) when ready."
+            ),
+        }
+
+    @mcp.tool
+    def list_themes() -> dict:
+        """List the themes installed on the blog and which one is active."""
+        with GhostAdminClient(load_settings()) as client:
+            installed = themes.list_themes(client)
+        return {
+            "themes": [{"name": t.get("name"), "active": t.get("active")} for t in installed],
+            "active": next((t.get("name") for t in installed if t.get("active")), None),
+        }
+
+    @mcp.tool
+    def download_theme(name: str) -> dict:
+        """Download an installed theme's source as a ZIP to a local temp file.
+
+        Useful for grabbing a theme's assets, branding, or ``package.json`` as a
+        reference. Returns the path to the downloaded file and its size.
+
+        Args:
+            name: The name of the installed theme to download.
+        """
+        with GhostAdminClient(load_settings()) as client:
+            data = themes.download_theme(client, name)
+        path = Path(tempfile.mkdtemp(prefix="ghost-mcp-download-")) / f"{name}.zip"
+        path.write_bytes(data)
+        return {"path": str(path), "bytes": len(data)}

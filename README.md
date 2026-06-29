@@ -15,12 +15,34 @@ will follow as thin tool wrappers, growing this into a full management server.
 
 ## Status
 
-Early. The connection, auth, and vision layers work. Roadmap:
+Working: auth, vision, theme generation/preview/upload, and site settings. Roadmap:
 
 - [x] Authenticated Admin API client (generic browse/read/add/edit/delete)
 - [x] **Vision** — `get_theme_structure` fetches the live page's markup + CSS
-- [ ] **Styling** — apply CSS to the site (code injection / theme upload)
-- [ ] **Management** — posts, members, newsletters, tags, … as CRUD tools
+- [x] **Themes** — generate, preview locally, upload, list, and download themes
+- [x] **Site settings** — read/update brand + SEO metadata (title, description, accent, meta/OG/Twitter)
+- [ ] **Management** — posts, members, newsletters, tags, … as CRUD tools (next)
+
+## Tools
+
+The server exposes these tools to the model:
+
+**Vision**
+- `get_theme_structure` — fetch a live page's HTML skeleton and linked CSS, so styling targets selectors that actually exist.
+
+**Themes**
+- `create_theme` — generate a complete, valid, previewable theme from a CSS design (and optional template overrides).
+- `preview_theme` — render a theme locally and serve it on localhost to review before publishing.
+- `upload_theme` — package and upload a theme; it installs **inactive**, so the live site is untouched.
+- `list_themes` — list installed themes and which one is active.
+- `download_theme` — download an installed theme's source as a zip.
+
+**Site settings**
+- `get_site_settings` — read brand and SEO settings.
+- `update_site_metadata` — site title/description plus SEO and social metadata (`meta_*`, Open Graph, Twitter cards).
+- `update_branding` — the brand accent colour.
+
+Activating a theme is intentionally **not** a tool — it changes the live site, so it stays a manual step.
 
 ## Requirements
 
@@ -35,16 +57,20 @@ Early. The connection, auth, and vision layers work. Roadmap:
 ```bash
 git clone <repo> && cd ghost-mcp
 uv sync                  # creates .venv and installs everything
-cp .env.example .env     # then fill in the two values
 ```
 
-`.env`:
+The server reads its configuration from environment variables:
 
-```
-GHOST_ADMIN_URL=https://yourblog.example.com
-GHOST_STAFF_ACCESS_TOKEN=<id>:<secret>
-GHOST_API_VERSION=v6.0    # optional; match your Ghost major version (default v6.0)
-```
+| Variable | Required | Example |
+|----------|----------|---------|
+| `GHOST_ADMIN_URL` | yes | `https://yourblog.example.com` |
+| `GHOST_STAFF_ACCESS_TOKEN` | yes | `<id>:<secret>` (from your Ghost user profile) |
+| `GHOST_API_VERSION` | no | `v6.0` (default; match your Ghost major version) |
+
+Provide them **either** way:
+
+- **In your MCP client** — put them in the server's `env` block (see [Running](#running)). No `.env` file is needed; this is the usual setup for Claude Desktop.
+- **In a local `.env`** — handy for development and the connection check: `cp .env.example .env` and fill it in. (If both are set, the client's `env` values win.)
 
 Confirm the credentials reach your site:
 
@@ -60,7 +86,8 @@ Interactively, with the MCP Inspector:
 uv run fastmcp dev src/ghost_mcp/server.py
 ```
 
-In Claude Desktop, add to your MCP servers config:
+In Claude Desktop, add to your MCP servers config — put your credentials in the
+`env` block and no `.env` file is needed:
 
 ```json
 {
@@ -68,7 +95,12 @@ In Claude Desktop, add to your MCP servers config:
     "ghost": {
       "command": "uv",
       "args": ["run", "ghost-mcp"],
-      "cwd": "/absolute/path/to/ghost-mcp"
+      "cwd": "/absolute/path/to/ghost-mcp",
+      "env": {
+        "GHOST_ADMIN_URL": "https://yourblog.example.com",
+        "GHOST_STAFF_ACCESS_TOKEN": "<id>:<secret>",
+        "GHOST_API_VERSION": "v6.0"
+      }
     }
   }
 }
@@ -91,8 +123,9 @@ The package is layered so each piece has one job:
 |--------|--------------------|-------------------------------------------------------|
 | Config | `ghost_mcp.config` | Load and validate environment configuration.          |
 | Errors | `ghost_mcp.errors` | The shared `GhostError` exception hierarchy.          |
-| Admin  | `ghost_mcp.admin`  | Authenticated Admin API: token signing + HTTP client. |
+| Admin  | `ghost_mcp.admin`  | Authenticated Admin API: token signing, generic client, theme + settings helpers. |
 | Vision | `ghost_mcp.vision` | Fetch the public rendered page + CSS (no auth).       |
+| Themes | `ghost_mcp.theme`  | Generate, locally preview, and package themes.        |
 | Tools  | `ghost_mcp.tools`  | Thin MCP wrappers over the layers above.              |
 | Server | `ghost_mcp.server` | Assemble the layers into a runnable server.           |
 
@@ -108,8 +141,8 @@ converting to Lexical client-side.
 ## Contributing
 
 The most important convention: **put logic in a service module (`admin/`,
-`vision/`) as a plain, typed, testable function, then expose it through a thin
-wrapper in `tools/`.** Tools adapt and shape data; they don't hold business logic.
+`vision/`, `theme/`) as a plain, typed, testable function, then expose it through a
+thin wrapper in `tools/`.** Tools adapt and shape data; they don't hold business logic.
 
 To add a group of tools:
 
