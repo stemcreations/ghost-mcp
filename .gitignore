@@ -19,3 +19,5 @@ dist/
 # Local-only files (not part of the published package)
 ghost-llms-full.txt
 handoffdoc.md
+landing.html
+serenitybook_blog_article_ideas.md

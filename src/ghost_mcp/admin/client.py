@@ -86,6 +86,13 @@ class GhostAdminClient:
     def get(self, path: str, *, params: dict[str, Any] | None = None) -> JSONDict:
         return self.request("GET", path, params=params)
 
+    def get_bytes(self, path: str, *, params: dict[str, Any] | None = None) -> bytes:
+        """Send an authenticated GET and return the raw body (e.g. a downloaded ZIP)."""
+        response = self._client.get(path.lstrip("/"), params=params, headers=self._headers())
+        if response.is_error:
+            raise GhostAPIError.from_response(response)
+        return response.content
+
     def post(
         self,
         path: str,

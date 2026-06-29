@@ -49,3 +49,12 @@ def test_activate_puts_to_activate_path() -> None:
 
     theme = themes.activate_theme(_client(handler), "my-theme")
     assert theme["active"] is True
+
+
+def test_download_returns_raw_zip_bytes() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.url.path == "/ghost/api/admin/themes/source/download/"
+        return httpx.Response(200, content=b"PK\x03\x04 zip-bytes")
+
+    data = themes.download_theme(_client(handler), "source")
+    assert data.startswith(b"PK")

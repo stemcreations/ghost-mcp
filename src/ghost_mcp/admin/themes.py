@@ -52,6 +52,16 @@ def delete_theme(client: GhostAdminClient, name: str) -> None:
     client.request("DELETE", f"/themes/{name}/")
 
 
+def download_theme(client: GhostAdminClient, name: str) -> bytes:
+    """Download an installed theme's source as ZIP bytes.
+
+    Uses Ghost's theme-download endpoint (the one the Admin UI's download button
+    calls). Useful for grabbing a theme's assets, branding, or ``package.json`` as a
+    reference.
+    """
+    return client.get_bytes(f"/themes/{name}/download/")
+
+
 def _single(payload: JSONDict) -> JSONDict:
     themes = payload.get("themes") or []
     return themes[0] if themes else {}
