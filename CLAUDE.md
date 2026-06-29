@@ -4,77 +4,79 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-Ghost MCP — a [FastMCP](https://github.com/jlowin/fastmcp) (Python) server that exposes the
-[Ghost Admin API](https://docs.ghost.org/admin-api) as MCP tools, so an MCP client can read and
-manage a Ghost site's content.
+A [FastMCP](https://github.com/jlowin/fastmcp) (Python) MCP server for **styling and
+managing a Ghost blog**. The differentiator is *vision*: it fetches the live blog's
+rendered HTML + CSS so the model can write CSS against real selectors instead of
+guessing. Vision and styling ship first; the authenticated client is generic so the
+full Ghost Admin API (posts, members, tags, …) follows as thin tool wrappers.
 
-The project is at its earliest stage: the dependencies and a Python 3.13 venv exist, but **no
-server code has been written yet**. The sections below describe the intended toolchain and the
-architecture any implementation must follow, grounded in the installed dependencies and the
-vendored API spec.
+This is a public repo. Keep code clean, typed, and documented; keep the README
+current for contributors.
 
-## Toolchain & commands
+## Commands
 
-- Python **3.13** in `.venv` (interpreter base: `C:\Users\WesCarothers\python3.13`).
-- Package manager: **uv** (user-local at `~/.local/bin/uv.exe`, no admin). uv replaces pip — use
-  `uv add` / `uv run`, never `pip install`.
-- Already installed in the venv: `fastmcp` 3.x, `mcp`, `httpx` (+ `httpx-sse`), `pyjwt`.
+uv manages everything (no global pip, no manual venv). If `uv` isn't found in a
+fresh shell, it's at `~/.local/bin/uv.exe` — open a new terminal or prepend it to
+PATH.
 
-There is **no `pyproject.toml`, lockfile, test suite, or linter yet** — formalize dependencies with
-`uv init` + `uv add fastmcp httpx pyjwt` before relying on reproducible installs.
-
-```powershell
-.venv\Scripts\Activate.ps1        # activate the existing venv (PowerShell)
-fastmcp run server.py             # run the server (once server.py exists)
-fastmcp dev server.py             # run with the MCP Inspector for interactive testing
-uv run fastmcp run server.py      # equivalent via uv without activating
+```bash
+uv sync                                  # install deps + the package (editable)
+uv run python scripts/check_connection.py  # smoke-test live Admin API credentials
+uv run fastmcp dev src/ghost_mcp/server.py # run with the MCP Inspector
+uv run ghost-mcp                         # run the server over stdio
+uv run ruff format                       # format
+uv run ruff check                        # lint
+uv run pytest                            # run all tests
+uv run pytest tests/test_auth.py::test_audience_is_admin  # run a single test
 ```
 
 ## Architecture
 
-Two things make this codebase non-obvious; both must be reproduced correctly for any tool to work.
+Layered package under `src/ghost_mcp/`, each layer with one responsibility:
 
-### 1. Authentication — JWT minted from a Staff Access Token
+- `config.py` — load/validate env (`GHOST_ADMIN_URL`, `GHOST_STAFF_ACCESS_TOKEN`, optional `GHOST_API_VERSION`).
+- `errors.py` — the `GhostError` hierarchy (`ConfigError`, `GhostAPIError`).
+- `admin/` — authenticated Admin API: `auth.py` mints JWTs, `client.py` is the HTTP client.
+- `vision/` — `structure.py` fetches the public page + CSS (no auth).
+- `tools/` — thin MCP wrappers; one module per domain, each exposing `register(mcp)`.
+- `server.py` — builds the FastMCP server and wires tools; `main()` is the entry point.
 
-The Ghost Admin API does **not** accept the staff token directly. The token in
-`.env` (`GHOST_STAFF_ACCESS_TOKEN`) is an `id:secret` pair, and every request needs a fresh,
-short-lived JWT signed from it (this is why `pyjwt` is a dependency):
+**The core convention:** business logic lives in a service module (`admin/`,
+`vision/`) as a plain, testable function; the `tools/` wrapper only adapts it to MCP.
+To add a tool group: write+test the logic, add `tools/<name>.py` with `register(mcp)`,
+and call it from `register_all` in `tools/__init__.py`.
 
-1. Split the token on `:` into `id` and `secret`.
-2. **Hex-decode** the `secret` into raw bytes — sign with the bytes, not the hex string.
-3. Sign HS256 with JWT header `{ "alg": "HS256", "typ": "JWT", "kid": <id> }` and payload
-   `{ "aud": "/admin/", "iat": <now>, "exp": <now + 300> }` (exp is **max 5 minutes** out; `iat`/`exp`
-   are seconds since epoch).
-4. Send it on every call as `Authorization: Ghost <jwt>` together with an
-   `Accept-Version: v{major}.{minor}` header.
+### Two load-bearing, non-obvious details
 
-Tokens are single-use / short-lived, so mint a JWT per request (or cache within the 5-minute window)
-rather than once at startup.
+1. **Auth (`admin/auth.py`).** Ghost's Admin API rejects the staff token directly.
+   Each request needs a fresh JWT: split the `id:secret` token on `:`, **hex-decode
+   the secret to bytes** (sign with the bytes, not the hex string), HS256, header
+   `kid=<id>`, payload `aud="/admin/"`, `exp` ≤ 5 min. Sent as `Authorization: Ghost
+   <jwt>` with `Accept-Version: v5.0`.
 
-### 2. Request/response shape (Ghost Admin API)
+2. **Uniform API shape (`admin/client.py`).** Every resource uses the same envelope:
+   `{ "<resource>": [ {...} ], "meta": {...} }` (`/site/` and `/settings/` are
+   unwrapped exceptions). That uniformity is why `browse/read/add/edit/delete` are
+   generic over a `resource` name rather than written per-resource.
 
-- Base URL: `https://{admin_domain}/ghost/api/admin/` — the admin domain may differ from the public
-  site domain. **This is not yet in `.env`**; a config var (e.g. `GHOST_ADMIN_URL`) must be added.
-- HTTP calls go through `httpx`.
-- Resources are wrapped: `{ "<resource_type>": [ { ... } ], "meta": { ... } }`, where
-  `<resource_type>` matches the URL segment. Exceptions returned unwrapped: `/site/` and `/settings/`.
-- POST/PUT bodies use the same wrapped envelope and require `Content-Type: application/json`.
-- Browse endpoints paginate (15/page default) via `meta.pagination`, and accept `include`, `fields`,
-  `filter`, `limit`, `page`, `order` query params — values must be URL-encoded.
+## Conventions
 
-### Mapping to MCP
-
-Each Ghost endpoint becomes a FastMCP tool (`@mcp.tool`). Keep auth/HTTP in one shared client layer
-so individual tools only describe their endpoint, params, and payload.
+- Type-hint everything; target Python 3.13.
+- **Docstrings go inside functions** (PEP 257) — FastMCP reads a tool's `__doc__` to
+  describe it to the model, so a comment above `def` would be invisible. Keep
+  function docstrings concise; put longer context in the module docstring. Write them
+  for humans reading the source.
+- Raise `GhostError` subclasses, never bare exceptions, for expected failure modes.
+- Pure Python only — see the README for why no Node/TypeScript layer is needed.
 
 ## Reference material
 
-`ghost-llms-full.txt` (~728 KB) is the **complete vendored Ghost Admin API documentation** —
-endpoints, fields, filtering, error formats, and auth. Treat it as the authoritative spec when
-building or wrapping tools; consult it instead of guessing endpoint shapes. It is reference data, not
-code.
+`ghost-llms-full.txt` (~728 KB, gitignored) is the complete Ghost Admin API
+documentation — endpoints, fields, filtering, errors, auth. Treat it as the
+authoritative spec when adding tools; consult it instead of guessing endpoint shapes.
+`handoffdoc.md` (gitignored) holds the project's design rationale and scope decisions.
 
 ## Secrets
 
-`.env` contains a real `GHOST_STAFF_ACCESS_TOKEN` and is gitignored (`.env.example` documents the
-variable). Never read its value into committed code, logs, or output.
+`.env` holds a real `GHOST_STAFF_ACCESS_TOKEN` and is gitignored (`.env.example`
+documents the variables). Never copy its value into committed code, logs, or output.

@@ -1,0 +1,16 @@
+{
+    "name": "ghost-mcp-smoke-test",
+    "description": "Minimal valid Ghost theme used by ghost-mcp to verify the upload channel.",
+    "version": "0.1.0",
+    "engines": {
+        "ghost-api": "v5.0"
+    },
+    "license": "MIT",
+    "author": {
+        "name": "ghost-mcp",
+        "email": "noreply@example.com"
+    },
+    "config": {
+        "posts_per_page": 5
+    }
+}

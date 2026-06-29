@@ -1,0 +1,30 @@
+/* Minimal theme styles, including the Koenig editor width classes that Ghost
+   requires every theme to define (otherwise wide/full-width images render
+   unstyled). */
+
+body {
+    margin: 0;
+    font-family: system-ui, -apple-system, sans-serif;
+    line-height: 1.5;
+}
+
+.site-main {
+    max-width: 720px;
+    margin: 0 auto;
+    padding: 2rem 1rem;
+}
+
+.kg-width-wide {
+    position: relative;
+    width: 85vw;
+    min-width: 100%;
+    margin-left: 50%;
+    transform: translateX(-50%);
+}
+
+.kg-width-full {
+    position: relative;
+    width: 100vw;
+    margin-left: 50%;
+    transform: translateX(-50%);
+}

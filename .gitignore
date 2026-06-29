@@ -1,3 +1,21 @@
-ghost-llms-full.txt
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+
+# Virtual environments
+.venv/
+
+# Secrets
 .env
-.venv
+
+# Tooling caches
+.pytest_cache/
+.ruff_cache/
+
+# Local-only files (not part of the published package)
+ghost-llms-full.txt
+handoffdoc.md
