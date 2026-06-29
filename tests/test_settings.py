@@ -59,3 +59,8 @@ def test_public_settings_never_expose_secrets() -> None:
         "public_hash",
     }
     assert not (set(_PUBLIC_KEYS) & secrets)
+
+
+def test_flatten_skips_malformed_rows() -> None:
+    body = {"settings": [{"key": "title", "value": "X"}, {"value": "no key"}, "garbage"]}
+    assert settings_api._flatten(body) == {"title": "X"}

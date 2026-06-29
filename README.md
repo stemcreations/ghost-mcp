@@ -165,6 +165,12 @@ uv run ruff check        # lint
 uv run pytest            # test
 ```
 
+Or install the git hook to run all three automatically before each commit:
+
+```bash
+uv run pre-commit install
+```
+
 ## License
 
 MIT — see [LICENSE](LICENSE).

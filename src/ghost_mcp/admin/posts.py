@@ -11,6 +11,7 @@ from __future__ import annotations
 from typing import Any
 
 from ghost_mcp.admin.client import GhostAdminClient, JSONDict
+from ghost_mcp.errors import NotFoundError
 
 
 def browse_posts(
@@ -32,7 +33,10 @@ def browse_posts(
 
 def read_post(client: GhostAdminClient, identifier: str, *, slug: bool = False) -> JSONDict:
     """Return a single post by id (or slug), with its rendered HTML included."""
-    return client.read("posts", identifier, slug=slug, params={"formats": "html"})
+    post = client.read("posts", identifier, slug=slug, params={"formats": "html"})
+    if not post:
+        raise NotFoundError(f"post '{identifier}' not found")
+    return post
 
 
 def create_post(client: GhostAdminClient, data: JSONDict, *, html: str | None = None) -> JSONDict:
@@ -57,6 +61,8 @@ def update_post(
     collision check). Only the fields in ``data`` (plus ``html`` if given) are changed.
     """
     current = client.read("posts", post_id)
+    if not current:
+        raise NotFoundError(f"post '{post_id}' not found")
     payload = {**data, "updated_at": current.get("updated_at")}
     params = None
     if html is not None:

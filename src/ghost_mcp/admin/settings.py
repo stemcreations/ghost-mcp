@@ -14,10 +14,22 @@ from typing import Any
 from ghost_mcp.admin.client import GhostAdminClient
 
 
+def _flatten(body: dict[str, Any]) -> dict[str, Any]:
+    """Turn the ``{settings: [{key, value}]}`` envelope into a ``{key: value}`` map.
+
+    Rows without a ``key`` (or that aren't objects) are skipped, so a single
+    malformed entry can't abort the whole read or update.
+    """
+    return {
+        item["key"]: item.get("value")
+        for item in body.get("settings", [])
+        if isinstance(item, dict) and "key" in item
+    }
+
+
 def get_settings(client: GhostAdminClient) -> dict[str, Any]:
     """Return all site settings as a flat ``{key: value}`` mapping."""
-    body = client.get("/settings/")
-    return {item["key"]: item.get("value") for item in body.get("settings", [])}
+    return _flatten(client.get("/settings/"))
 
 
 def update_settings(client: GhostAdminClient, values: dict[str, Any]) -> dict[str, Any]:
@@ -26,5 +38,4 @@ def update_settings(client: GhostAdminClient, values: dict[str, Any]) -> dict[st
     Only the keys in ``values`` are changed; other settings are left untouched.
     """
     payload = {"settings": [{"key": key, "value": value} for key, value in values.items()]}
-    body = client.put("/settings/", json=payload)
-    return {item["key"]: item.get("value") for item in body.get("settings", [])}
+    return _flatten(client.put("/settings/", json=payload))

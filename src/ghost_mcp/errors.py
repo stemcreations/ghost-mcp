@@ -24,6 +24,10 @@ class ThemeError(GhostError):
     """A theme could not be built, packaged, or previewed."""
 
 
+class NotFoundError(GhostError):
+    """A requested resource was not found."""
+
+
 class GhostAPIError(GhostError):
     """The Ghost Admin API returned an error response.
 
@@ -49,13 +53,16 @@ class GhostAPIError(GhostError):
         """Build an error from a failed Admin API response.
 
         Ghost returns failures as ``{"errors": [{"message": ...}, ...]}``; this
-        pulls those messages out so the raised error reads clearly.
+        pulls those messages out so the raised error reads clearly. It tolerates
+        malformed bodies (a non-dict body, or error entries that aren't dicts).
         """
         errors: list[dict] = []
         try:
-            errors = response.json().get("errors") or []
+            body = response.json()
         except ValueError:
-            pass
+            body = None
+        if isinstance(body, dict):
+            errors = [e for e in (body.get("errors") or []) if isinstance(e, dict)]
         detail = "; ".join(e["message"] for e in errors if e.get("message"))
         message = detail or f"Ghost API request failed with status {response.status_code}"
         return cls(message, status_code=response.status_code, errors=errors)

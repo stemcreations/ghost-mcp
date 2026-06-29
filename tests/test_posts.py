@@ -3,10 +3,12 @@
 import json
 
 import httpx
+import pytest
 
 from ghost_mcp.admin import posts as posts_api
 from ghost_mcp.admin.client import GhostAdminClient
 from ghost_mcp.config import Settings
+from ghost_mcp.errors import NotFoundError
 from ghost_mcp.tools.posts import _summary
 
 SETTINGS = Settings(admin_url="https://example.com", staff_token="abc:" + "ab" * 32)
@@ -73,3 +75,19 @@ def test_summary_includes_native_preview_url() -> None:
 
 def test_summary_omits_preview_url_without_site() -> None:
     assert "preview_url" not in _summary({"id": "1", "uuid": "abc"})
+
+
+def test_read_post_raises_when_missing() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json={"posts": []})
+
+    with pytest.raises(NotFoundError):
+        posts_api.read_post(_client(handler), "missing")
+
+
+def test_update_post_raises_when_missing() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json={"posts": []})
+
+    with pytest.raises(NotFoundError):
+        posts_api.update_post(_client(handler), "missing", {"title": "x"})
