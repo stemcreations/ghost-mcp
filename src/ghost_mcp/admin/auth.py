@@ -34,6 +34,13 @@ def mint_admin_token(staff_token: str, *, ttl_seconds: int = MAX_TOKEN_TTL) -> s
     if ":" not in staff_token:
         raise ConfigError("staff token must be in 'id:secret' form")
     key_id, secret = staff_token.split(":", 1)
+    try:
+        secret_bytes = bytes.fromhex(secret)
+    except ValueError as exc:
+        raise ConfigError(
+            "staff token secret is not valid hex; copy the token exactly from the "
+            "user's profile page in Ghost Admin"
+        ) from exc
     issued_at = int(time.time())
     return jwt.encode(
         {
@@ -41,7 +48,7 @@ def mint_admin_token(staff_token: str, *, ttl_seconds: int = MAX_TOKEN_TTL) -> s
             "exp": issued_at + min(ttl_seconds, MAX_TOKEN_TTL),
             "aud": "/admin/",
         },
-        bytes.fromhex(secret),
+        secret_bytes,
         algorithm="HS256",
         headers={"kid": key_id},
     )

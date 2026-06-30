@@ -7,6 +7,7 @@ stays a manual step (Ghost Admin, or the Python helper) for safety.
 import atexit
 import shutil
 import tempfile
+import threading
 from pathlib import Path
 
 from fastmcp import FastMCP
@@ -18,11 +19,14 @@ from ghost_mcp.tools._client import admin_client
 
 # At most one preview server runs at a time. Each new preview replaces and cleans up
 # the previous one (server + rendered files); the active one is also torn down at exit.
+# The lock serialises swap/teardown so concurrent preview_theme calls can't race into
+# leaking a server or its rendered files.
 _active_preview: dict = {"server": None, "out_dir": None}
+_preview_lock = threading.Lock()
 
 
-def _stop_active_preview() -> None:
-    """Shut down the current preview server and remove its rendered files."""
+def _stop_active_preview_locked() -> None:
+    """Shut down the current preview server and remove its files. Lock must be held."""
     server = _active_preview.get("server")
     if server is not None:
         server.shutdown()
@@ -31,6 +35,12 @@ def _stop_active_preview() -> None:
         shutil.rmtree(out_dir, ignore_errors=True)
     _active_preview["server"] = None
     _active_preview["out_dir"] = None
+
+
+def _stop_active_preview() -> None:
+    """Shut down the current preview server and remove its rendered files."""
+    with _preview_lock:
+        _stop_active_preview_locked()
 
 
 atexit.register(_stop_active_preview)
@@ -58,7 +68,9 @@ def register(mcp: FastMCP) -> None:
 
         Optionally override the home/post/page templates with your own Handlebars,
         but avoid block params (``as |x|``); they are rejected so the result can
-        always be previewed locally.
+        always be previewed locally. Layout inheritance is handled for you: the
+        ``{{!< default}}`` directive is injected if an override omits it, so the
+        page is always wrapped in the site layout and the stylesheet loads.
 
         After generating, call ``preview_theme`` with the returned path to view it,
         then ``upload_theme`` to install it (activation stays manual).
@@ -104,12 +116,13 @@ def register(mcp: FastMCP) -> None:
         Returns:
             A mapping with the base ``preview_url`` and the URL of each rendered page.
         """
-        _stop_active_preview()
-        out_dir = tempfile.mkdtemp(prefix="ghost-mcp-preview-")
-        written = write_preview(theme_path, out_dir)
-        url, server = serve_preview(out_dir)
-        _active_preview["server"] = server
-        _active_preview["out_dir"] = out_dir
+        with _preview_lock:
+            _stop_active_preview_locked()
+            out_dir = tempfile.mkdtemp(prefix="ghost-mcp-preview-")
+            written = write_preview(theme_path, out_dir)
+            url, server = serve_preview(out_dir)
+            _active_preview["server"] = server
+            _active_preview["out_dir"] = out_dir
         return {
             "preview_url": url,
             "pages": {name: f"{url}{path.name}" for name, path in written.items()},

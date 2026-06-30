@@ -35,3 +35,10 @@ def test_lifetime_is_capped_at_five_minutes() -> None:
 def test_malformed_token_is_rejected() -> None:
     with pytest.raises(ConfigError):
         mint_admin_token("not-a-valid-token")
+
+
+def test_non_hex_secret_raises_config_error() -> None:
+    # A token with the right id:secret shape but a non-hex secret should surface a
+    # clean ConfigError, not a bare ValueError from bytes.fromhex.
+    with pytest.raises(ConfigError):
+        mint_admin_token("abc123:not-hex-secret!!")

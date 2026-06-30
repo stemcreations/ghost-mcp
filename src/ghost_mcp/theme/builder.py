@@ -25,6 +25,9 @@ from ghost_mcp.errors import ThemeError
 #: Detects Handlebars block params, which the local previewer cannot render.
 _BLOCK_PARAMS = re.compile(r"\bas\s+\|")
 
+#: Detects a Handlebars layout directive, e.g. ``{{!< default}}``.
+_LAYOUT_DIRECTIVE = re.compile(r"\{\{!<\s*[\w-]+\s*\}\}")
+
 _DEFAULT_HBS = """<!DOCTYPE html>
 <html lang="{{@site.locale}}">
 <head>
@@ -185,6 +188,9 @@ _SKELETON = {
     "page": _PAGE_HBS,
 }
 
+#: Content templates that are body fragments and must inherit the site layout.
+_CONTENT_TEMPLATES = frozenset({"index", "post", "page"})
+
 
 @dataclass
 class ThemeSpec:
@@ -247,6 +253,12 @@ def build_theme(spec: ThemeSpec, out_dir: str | Path) -> Path:
     templates = dict(_SKELETON)
     for name, source in spec.templates.items():
         _ensure_previewable(name, source)
+        # A content template is a body fragment that must inherit the site layout
+        # (default.hbs) via a {{!< default}} directive; without it Ghost and the
+        # local previewer render it as a bare fragment with no <head>, so the
+        # stylesheet never loads. Overrides routinely omit the line, so restore it.
+        if name in _CONTENT_TEMPLATES and not _LAYOUT_DIRECTIVE.search(source):
+            source = "{{!< default}}\n" + source
         templates[name] = source
     for name, source in templates.items():
         (theme / f"{name}.hbs").write_text(source, encoding="utf-8")

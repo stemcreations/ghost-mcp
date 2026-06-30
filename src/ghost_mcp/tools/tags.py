@@ -11,6 +11,9 @@ from fastmcp import FastMCP
 from ghost_mcp.errors import GhostError
 from ghost_mcp.tools._client import admin_client
 
+#: Ask Ghost to include each tag's post count in the response.
+_WITH_COUNT = {"include": "count.posts"}
+
 
 def _summary(tag: dict) -> dict:
     return {
@@ -67,7 +70,7 @@ def register(mcp: FastMCP) -> None:
         Returns:
             A list of tag summaries and the pagination block.
         """
-        params: dict = {"limit": limit, "page": page, "order": order, "include": "count.posts"}
+        params: dict = {"limit": limit, "page": page, "order": order, **_WITH_COUNT}
         if filter:
             params["filter"] = filter
         result = admin_client().browse("tags", params=params)
@@ -81,9 +84,7 @@ def register(mcp: FastMCP) -> None:
         """Read a single tag by id or slug. Provide either ``tag_id`` or ``slug``."""
         if not tag_id and not slug:
             raise GhostError("Provide either tag_id or slug.")
-        tag = admin_client().read(
-            "tags", slug or tag_id, slug=bool(slug), params={"include": "count.posts"}
-        )
+        tag = admin_client().read("tags", slug or tag_id, slug=bool(slug), params=_WITH_COUNT)
         return _summary(tag)
 
     @mcp.tool
@@ -101,7 +102,7 @@ def register(mcp: FastMCP) -> None:
         created tag's summary.
         """
         fields = _fields(name, description, slug, meta_title, meta_description, feature_image)
-        created = admin_client().add("tags", fields)
+        created = admin_client().add("tags", fields, params=_WITH_COUNT)
         return _summary(created)
 
     @mcp.tool
@@ -116,7 +117,7 @@ def register(mcp: FastMCP) -> None:
     ) -> dict:
         """Update a tag by id; only the fields you pass are changed."""
         fields = _fields(name, description, slug, meta_title, meta_description, feature_image)
-        updated = admin_client().edit("tags", tag_id, fields)
+        updated = admin_client().edit("tags", tag_id, fields, params=_WITH_COUNT)
         return _summary(updated)
 
     @mcp.tool

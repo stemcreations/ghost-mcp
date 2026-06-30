@@ -51,6 +51,28 @@ def test_block_params_template_is_rejected(tmp_path) -> None:
         build_theme(spec, tmp_path)
 
 
+def test_override_without_layout_directive_still_inherits_layout(tmp_path) -> None:
+    # An override that omits {{!< default}} must still be wrapped in the layout,
+    # otherwise the preview is a bare fragment with no <head> and the CSS never loads.
+    spec = ThemeSpec(
+        name="t",
+        styles="body { color: blue; }",
+        templates={"index": '<section class="feed">no layout directive here</section>'},
+    )
+    theme = build_theme(spec, tmp_path)
+    assert (theme / "index.hbs").read_text().startswith("{{!< default}}")
+    html = render_theme(theme)["index"]
+    assert "<head>" in html
+    assert "screen.css" in html
+
+
+def test_override_keeps_its_own_layout_directive(tmp_path) -> None:
+    # An explicit directive (even a non-default layout) is respected, not duplicated.
+    spec = ThemeSpec(name="t", templates={"index": "{{!< default}}\n<section>hi</section>"})
+    theme = build_theme(spec, tmp_path)
+    assert (theme / "index.hbs").read_text().count("{{!< default}}") == 1
+
+
 def test_generated_theme_is_previewable(tmp_path) -> None:
     theme = build_theme(ThemeSpec(name="t", styles="body { color: blue; }"), tmp_path)
     pages = render_theme(theme)
