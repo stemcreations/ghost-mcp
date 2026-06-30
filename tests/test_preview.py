@@ -2,6 +2,9 @@
 
 from pathlib import Path
 
+import pytest
+
+from ghost_mcp.errors import ThemeError
 from ghost_mcp.theme.preview import default_sample, render_theme
 
 FIXTURE = Path(__file__).parent / "fixtures" / "ghost-mcp-smoke-test"
@@ -42,6 +45,42 @@ def test_layout_directive_cannot_traverse_outside_theme(tmp_path) -> None:
 
     html = render_theme(theme)["index"]
     assert "TRAVERSAL_SECRET_MARKER" not in html  # traversal blocked, no file read
+
+
+def _minimal_theme(tmp_path, index_body: str) -> Path:
+    theme = tmp_path / "t"
+    theme.mkdir()
+    (theme / "package.json").write_text('{"name": "t"}')
+    (theme / "default.hbs").write_text("{{{body}}}")
+    (theme / "index.hbs").write_text("{{!< default}}" + index_body)
+    (theme / "post.hbs").write_text("{{#post}}{{title}}{{/post}}")
+    (theme / "page.hbs").write_text("{{#post}}{{title}}{{/post}}")
+    return theme
+
+
+def test_foreach_honours_limit_kwarg(tmp_path) -> None:
+    # Ghost's foreach limit= hash arg must not crash the previewer, and should
+    # actually narrow the loop: 3 sample posts, limit="2" -> two rendered.
+    theme = _minimal_theme(tmp_path, '{{#foreach posts limit="2"}}[{{title}}]{{/foreach}}')
+    html = render_theme(theme)["index"]
+    assert html.count("[") == 2
+
+
+def test_unpreviewable_template_raises_clear_error(tmp_path) -> None:
+    # A 'from=' loop arg can't be compiled by pybars3 ('from' is a Python keyword).
+    # Rendering such a theme directly should fail with a clear ThemeError, not a raw
+    # SyntaxError leaking from the compiler.
+    theme = _minimal_theme(tmp_path, '{{#foreach posts from="2"}}{{title}}{{/foreach}}')
+    with pytest.raises(ThemeError):
+        render_theme(theme)
+
+
+def test_unknown_helper_with_kwargs_degrades_instead_of_crashing(tmp_path) -> None:
+    # {{date … format="MMM D, YYYY"}} and other unimplemented helpers used to crash
+    # the whole preview; now they render empty and the rest of the page still renders.
+    theme = _minimal_theme(tmp_path, 'X{{date published_at format="MMM D, YYYY"}}Y')
+    html = render_theme(theme)["index"]
+    assert "XY" in html  # helper rendered empty, surrounding markup intact
 
 
 def test_foreach_renders_else_block_on_empty_feed(tmp_path) -> None:

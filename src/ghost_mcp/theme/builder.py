@@ -28,6 +28,11 @@ from ghost_mcp.errors import ThemeError
 #: Detects Handlebars block params, which the local previewer cannot render.
 _BLOCK_PARAMS = re.compile(r"\bas\s+\|")
 
+#: Detects a ``from=`` hash argument inside a mustache tag. pybars3 turns hash args
+#: into Python keyword arguments, and ``from`` is a Python keyword, so a template
+#: using it fails to *compile* for preview (an unfixable pybars3 limitation).
+_FROM_HASH_ARG = re.compile(r"\{\{[^}]*\bfrom\s*=")
+
 #: Detects a Handlebars layout directive, e.g. ``{{!< default}}``.
 _LAYOUT_DIRECTIVE = re.compile(r"\{\{!<\s*[\w-]+\s*\}\}")
 
@@ -287,6 +292,12 @@ def _ensure_previewable(name: str, source: str) -> None:
         raise ThemeError(
             f"template '{name}' uses Handlebars block params (as |x|), which the local "
             "previewer cannot render; rewrite the loop without block params."
+        )
+    if _FROM_HASH_ARG.search(source):
+        raise ThemeError(
+            f"template '{name}' uses a 'from=' loop argument; the local previewer "
+            "(pybars3) cannot compile it because 'from' is a Python keyword. Use "
+            "'limit='/'to=' to slice the loop, or drop it."
         )
 
 

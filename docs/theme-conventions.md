@@ -107,16 +107,25 @@ The previewer (`theme/preview.py`) supports only:
 appear throughout Source, which is why Source itself is *not* previewable by this
 tool — use it as a reference for structure and class names, never copy-paste):
 
-- **Block params:** `{{#get … as |recent|}}`, `{{#foreach posts as |p|}}`. The
-  builder **rejects** block params (`_ensure_previewable`) outright.
-- **Server-side data/flow helpers:** `{{#get}}` (DB queries), `{{#match}}`,
-  `{{#is}}`, `{{#has}}`, `{{#foreach posts from="5"}}`, `{{date format=…}}`,
-  `{{social_url}}`, `{{navigation}}`, `{{pagination}}`, `{{t}}` (i18n),
-  `{{@config.*}}`, `{{recommendations}}`, `{{comments}}`.
-- **Loop `@`-data not stubbed:** `@number`, `@index`, `@first`, `@last`.
+- **Block params (rejected at build):** `{{#get … as |recent|}}`,
+  `{{#foreach posts as |p|}}`. `_ensure_previewable` raises on these.
+- **`from=` loop argument (rejected at build):** `{{#foreach posts from="5"}}`.
+  pybars3 turns hash args into Python keyword arguments and `from` is a Python
+  keyword, so the generated code won't compile — an unfixable pybars3 limitation.
+  Use `limit=` / `to=` to slice a loop instead (those *do* work in preview).
+- **Server-side helpers (degrade to empty):** `{{#get}}` (DB queries), `{{#match}}`,
+  `{{#is}}`, `{{#has}}`, `{{date format=…}}`, `{{social_url}}`, `{{navigation}}`,
+  `{{pagination}}`, `{{t}}` (i18n), `{{@config.*}}`, `{{recommendations}}`,
+  `{{comments}}`, `{{excerpt words=…}}`. The previewer installs a `helperMissing`
+  catch-all, so these render **blank** locally rather than crashing the preview —
+  they work for real once the theme is uploaded. (Bare `{{excerpt}}` / `{{title}}`
+  field lookups are unaffected; only the *helper* forms degrade.)
+- **Loop `@`-data not stubbed:** `@number`, `@index`, `@first`, `@last` — render
+  blank locally.
 
-These render fine on a live Ghost but will error or render blank locally. If a theme
-needs them, upload and verify on the live site instead of relying on the preview.
+Net: the previewer no longer hard-fails on an unknown helper; the only constructs
+that abort a build are block params and `from=` (both caught with a clear message).
+If a template needs the degraded helpers, upload and verify on the live site.
 
 ---
 

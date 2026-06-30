@@ -71,6 +71,14 @@ def test_block_params_template_is_rejected(tmp_path) -> None:
         build_theme(spec, tmp_path)
 
 
+def test_from_loop_arg_is_rejected(tmp_path) -> None:
+    # 'from=' can't be compiled by the previewer (pybars3 emits invalid Python since
+    # 'from' is a keyword), so the builder rejects it at build time with a clear error.
+    spec = ThemeSpec(name="t", templates={"index": '{{#foreach posts from="2"}}{{/foreach}}'})
+    with pytest.raises(ThemeError):
+        build_theme(spec, tmp_path)
+
+
 def test_override_without_layout_directive_still_inherits_layout(tmp_path) -> None:
     # An override that omits {{!< default}} must still be wrapped in the layout,
     # otherwise the preview is a bare fragment with no <head> and the CSS never loads.

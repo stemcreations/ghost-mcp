@@ -23,6 +23,8 @@ from pathlib import Path
 
 from pybars import Compiler
 
+from ghost_mcp.errors import ThemeError
+
 try:  # lets helpers emit raw HTML (e.g. post content) without escaping
     from pybars import strlist
 except ImportError:  # pragma: no cover - depends on pybars internals
@@ -32,6 +34,24 @@ except ImportError:  # pragma: no cover - depends on pybars internals
 # template can't escape the theme directory via ``{{!< ../../some/file }}``.
 _LAYOUT_DIRECTIVE = re.compile(r"\{\{!<\s*([\w-]+)\s*\}\}")
 _compiler = Compiler()
+
+
+def _compile(source: str, *, what: str):
+    """Compile a template, turning pybars3's low-level errors into a clear ThemeError.
+
+    pybars3 transpiles Handlebars to Python, so an unsupported construct surfaces as
+    a ``SyntaxError`` or ``PybarsError`` from deep inside the compiler (for example a
+    ``from=`` loop arg, which becomes an invalid Python keyword argument). Translate
+    those into a legible message that names what failed.
+    """
+    try:
+        return _compiler.compile(source)
+    except Exception as exc:  # noqa: BLE001 - pybars3 raises SyntaxError/PybarsError
+        raise ThemeError(
+            f"could not compile {what} for preview: {exc}. The local previewer "
+            "supports only a subset of Ghost's Handlebars; see docs/theme-conventions.md."
+        ) from exc
+
 
 #: Templates rendered for preview, each with the context Ghost would give it.
 _PREVIEW_PAGES = ("index", "post", "page")
@@ -129,15 +149,40 @@ def _build_helpers() -> dict:
         return f"/assets/{path}"
 
     def img_url(this, value=None, **_kw):
+        # Ghost resizes via size=/format= hash args; the previewer just returns the URL.
         return value or ""
 
-    def foreach(this, options, items):
-        items = items or []
+    def foreach(this, options, items, limit=None, **kwargs):
+        # Ghost's foreach accepts hash args (limit, to, columns, visibility, …).
+        # Honour limit/to so the preview matches, and accept/ignore the rest rather
+        # than crashing on them. (A ``from=`` arg never reaches here: pybars3 can't
+        # compile it -- ``from`` is a Python keyword -- so the builder rejects it up
+        # front via _ensure_previewable.)
+        items = list(items or [])
+        end = kwargs.get("to")
+        if end:
+            items = items[: int(end)]  # ``to`` is 1-indexed and inclusive in Ghost
+        if limit:
+            items = items[: int(limit)]
         if not items:
             return options["inverse"](this)  # render the {{else}} block on an empty feed
         return [options["fn"](item) for item in items]
 
-    return {"asset": asset, "img_url": img_url, "foreach": foreach}
+    def helper_missing(this, *_args, **_kwargs):
+        # Ghost ships many helpers this local previewer doesn't implement
+        # (``{{date format=…}}``, ``{{#get}}``, ``{{t}}``, ``{{excerpt words=…}}``,
+        # …). Without this, pybars3 raises on the first unknown helper and the whole
+        # preview fails. Degrade to empty output instead; the helper renders for real
+        # once the theme is uploaded to Ghost. Bare field lookups are unaffected --
+        # pybars3 only routes here when a name is used like a helper (with args/block).
+        return ""
+
+    return {
+        "asset": asset,
+        "img_url": img_url,
+        "foreach": foreach,
+        "helperMissing": helper_missing,
+    }
 
 
 def _load_partials(theme: Path) -> dict:
@@ -146,16 +191,20 @@ def _load_partials(theme: Path) -> dict:
     if partials_dir.is_dir():
         for path in partials_dir.rglob("*.hbs"):
             name = path.relative_to(partials_dir).with_suffix("").as_posix()
-            partials[name] = _compiler.compile(path.read_text(encoding="utf-8"))
+            partials[name] = _compile(path.read_text(encoding="utf-8"), what=f"partial '{name}'")
     return partials
 
 
 def _render_with_layout(
-    source: str, context: dict, helpers: dict, partials: dict, theme: Path
+    source: str, context: dict, helpers: dict, partials: dict, theme: Path, *, name: str
 ) -> str:
     match = _LAYOUT_DIRECTIVE.search(source)
     body_source = _LAYOUT_DIRECTIVE.sub("", source)
-    body_html = str(_compiler.compile(body_source)(context, helpers=helpers, partials=partials))
+    body_html = str(
+        _compile(body_source, what=f"template '{name}'")(
+            context, helpers=helpers, partials=partials
+        )
+    )
 
     if not match:
         return body_html
@@ -163,7 +212,7 @@ def _render_with_layout(
     if not layout_file.exists():
         return body_html
     layout_context = {**context, "body": body_html}
-    layout = _compiler.compile(layout_file.read_text(encoding="utf-8"))
+    layout = _compile(layout_file.read_text(encoding="utf-8"), what=f"layout '{match.group(1)}'")
     return str(layout(layout_context, helpers=helpers, partials=partials))
 
 
@@ -190,7 +239,9 @@ def render_theme(theme_dir: str | Path, *, sample: dict | None = None) -> dict[s
         template_file = theme / f"{name}.hbs"
         if template_file.exists():
             source = template_file.read_text(encoding="utf-8")
-            pages[name] = _render_with_layout(source, contexts[name], helpers, partials, theme)
+            pages[name] = _render_with_layout(
+                source, contexts[name], helpers, partials, theme, name=name
+            )
     return pages
 
 
