@@ -32,12 +32,32 @@ def test_package_json_is_valid_and_has_author_email(tmp_path) -> None:
     assert pkg["author"]["email"]  # gscan requires author.email
 
 
+def test_package_json_declares_card_assets_and_image_sizes(tmp_path) -> None:
+    # card_assets lets Ghost style Koenig cards on the live blog; image_sizes powers
+    # responsive {{img_url size=…}}. Both are part of the Ghost compatibility surface.
+    pkg = json.loads((build_theme(ThemeSpec(name="t"), tmp_path) / "package.json").read_text())
+    assert pkg["config"]["card_assets"] is True
+    assert set(pkg["config"]["image_sizes"]) == {"xs", "s", "m", "l", "xl", "xxl"}
+
+
 def test_required_koenig_css_present(tmp_path) -> None:
     css = (
         build_theme(ThemeSpec(name="t"), tmp_path) / "assets" / "built" / "screen.css"
     ).read_text()
     assert ".kg-width-wide" in css
     assert ".kg-width-full" in css
+
+
+def test_base_css_follows_ghost_conventions(tmp_path) -> None:
+    # Design tokens on :root, consumption of Ghost's injected accent + font-picker
+    # variables, and the grid "canvas" that lets Koenig cards break out.
+    css = (
+        build_theme(ThemeSpec(name="t"), tmp_path) / "assets" / "built" / "screen.css"
+    ).read_text()
+    assert "var(--ghost-accent-color" in css
+    assert "var(--gh-font-body" in css
+    assert "--content-width" in css
+    assert "grid-template-columns" in css
 
 
 def test_custom_styles_are_appended(tmp_path) -> None:

@@ -66,11 +66,16 @@ def register(mcp: FastMCP) -> None:
         accent colour is available in CSS as ``var(--ghost-accent-color)``, so the
         theme respects the user's existing branding.
 
-        Optionally override the home/post/page templates with your own Handlebars,
-        but avoid block params (``as |x|``); they are rejected so the result can
-        always be previewed locally. Layout inheritance is handled for you: the
+        Optionally override the home/post/page templates with your own Handlebars.
+        Stay within the previewable helper subset: ``{{#if}}``/``{{#unless}}``,
+        ``{{#foreach}}``, ``{{#post}}``, partials, and bare fields like ``{{title}}``
+        and ``{{content}}``. Avoid block params (``as |x|``) and the helpers Ghost
+        evaluates server-side (``{{#get}}``, ``{{#match}}``, ``{{#is}}``,
+        ``{{date}}``) -- block params are rejected outright, and the rest won't
+        render in the local preview. Layout inheritance is handled for you: the
         ``{{!< default}}`` directive is injected if an override omits it, so the
-        page is always wrapped in the site layout and the stylesheet loads.
+        page is always wrapped in the site layout and the stylesheet loads. See
+        ``docs/theme-conventions.md`` for the full contract.
 
         After generating, call ``preview_theme`` with the returned path to view it,
         then ``upload_theme`` to install it (activation stays manual).

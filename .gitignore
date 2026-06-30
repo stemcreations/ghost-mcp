@@ -19,8 +19,11 @@ dist/
 # Local-only files (not part of the published package)
 ghost-llms-full.txt
 handoffdoc.md
+# Ghost's official "Source" theme, kept locally as a reference for the builder
+source/
 landing.html
 serenitybook_blog_article_ideas.md
 SECURITY_REVIEW.md
 CODE_REVIEW.md
 .claude/settings.json
+logo.svg
