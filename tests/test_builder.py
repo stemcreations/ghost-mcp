@@ -1,11 +1,19 @@
 """Unit tests for theme generation (no network)."""
 
+import io
 import json
+import zipfile
 
 import pytest
 
 from ghost_mcp.errors import ThemeError
-from ghost_mcp.theme.builder import ThemeSpec, build_theme, nav_advisory
+from ghost_mcp.theme.builder import (
+    ThemeSpec,
+    build_theme,
+    nav_advisory,
+    package_theme,
+    restyle_archive,
+)
 from ghost_mcp.theme.preview import render_theme
 
 REQUIRED_FILES = (
@@ -202,3 +210,53 @@ def test_generated_theme_is_previewable(tmp_path) -> None:
     assert set(pages) == {"index", "post", "page"}
     for html in pages.values():
         assert "{{" not in html
+
+
+# --- restyle_archive (download -> edit screen.css -> repackage) ----------------
+
+
+def _archive(tmp_path, **spec_kwargs) -> bytes:
+    """A packaged theme archive to feed restyle_archive (mirrors download_theme)."""
+    return package_theme(build_theme(ThemeSpec(name="restyle-me", **spec_kwargs), tmp_path))
+
+
+def _read(zip_bytes: bytes, suffix: str) -> str:
+    with zipfile.ZipFile(io.BytesIO(zip_bytes)) as archive:
+        name = next(n for n in archive.namelist() if n.endswith(suffix))
+        return archive.read(name).decode("utf-8")
+
+
+def test_restyle_append_keeps_base_css_and_adds_new_rules(tmp_path) -> None:
+    restyled = restyle_archive(_archive(tmp_path), "body { color: rebeccapurple; }")
+    css = _read(restyled, "assets/built/screen.css")
+    assert ".kg-width-full" in css  # base CSS retained
+    assert "rebeccapurple" in css  # new CSS appended
+
+
+def test_restyle_replace_swaps_the_whole_stylesheet(tmp_path) -> None:
+    restyled = restyle_archive(_archive(tmp_path), ".only { color: red; }", mode="replace")
+    css = _read(restyled, "assets/built/screen.css")
+    assert ".only" in css
+    assert ".kg-width-full" not in css  # base CSS gone
+
+
+def test_restyle_preserves_other_files_and_root_folder(tmp_path) -> None:
+    original = _archive(tmp_path)
+    restyled = restyle_archive(original, "body{}")
+    with zipfile.ZipFile(io.BytesIO(original)) as a, zipfile.ZipFile(io.BytesIO(restyled)) as b:
+        assert set(a.namelist()) == set(b.namelist())  # same files, none added/dropped
+        assert all(n.startswith("restyle-me/") for n in b.namelist())  # rooted under folder
+        assert a.read("restyle-me/package.json") == b.read("restyle-me/package.json")
+
+
+def test_restyle_rejects_unknown_mode(tmp_path) -> None:
+    with pytest.raises(ThemeError):
+        restyle_archive(_archive(tmp_path), "body{}", mode="prepend")
+
+
+def test_restyle_without_a_stylesheet_is_rejected() -> None:
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w") as archive:
+        archive.writestr("some-theme/package.json", '{"name": "some-theme"}')
+    with pytest.raises(ThemeError):
+        restyle_archive(buffer.getvalue(), "body{}")

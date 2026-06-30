@@ -494,6 +494,58 @@ def build_theme(spec: ThemeSpec, out_dir: str | Path) -> Path:
     return theme
 
 
+#: The compiled-stylesheet path a Ghost theme serves. Generated themes and Ghost's
+#: own Source/Casper all emit to this path; restyle_archive rewrites this entry.
+_SCREEN_CSS_SUFFIX = "assets/built/screen.css"
+
+
+def restyle_archive(zip_bytes: bytes, css: str, *, mode: str = "append") -> bytes:
+    """Rewrite a theme ZIP's ``screen.css`` and return the repackaged archive.
+
+    The download-edit-reupload path for iterating an *installed* theme without
+    regenerating it: find ``assets/built/screen.css`` inside the archive and either
+    append ``css`` after the existing rules (``mode="append"`` -- the safe default,
+    since later rules win by source order) or replace the file's contents
+    (``mode="replace"``). Every other file is copied through unchanged.
+
+    Args:
+        zip_bytes: The theme archive (e.g. from ``download_theme``).
+        css: The CSS to append, or to replace the stylesheet with.
+        mode: ``"append"`` (default) or ``"replace"``.
+
+    Returns:
+        The repackaged ZIP bytes, ready for ``upload_theme``.
+
+    Raises:
+        ThemeError: if ``mode`` is invalid, or the archive has no
+            ``assets/built/screen.css`` (a theme whose CSS compiles elsewhere can't
+            be restyled this way).
+    """
+    if mode not in ("append", "replace"):
+        raise ThemeError(f"mode must be 'append' or 'replace', not {mode!r}.")
+    addition = css.strip()
+    with zipfile.ZipFile(io.BytesIO(zip_bytes)) as zin:
+        target = next((n for n in zin.namelist() if n.endswith(_SCREEN_CSS_SUFFIX)), None)
+        if target is None:
+            raise ThemeError(
+                f"theme archive has no {_SCREEN_CSS_SUFFIX} to restyle; its stylesheet "
+                "is compiled elsewhere, so edit and re-upload it manually."
+            )
+        buffer = io.BytesIO()
+        with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as zout:
+            for info in zin.infolist():
+                data = zin.read(info.filename)
+                if info.filename == target:
+                    if mode == "append":
+                        existing = data.decode("utf-8", errors="replace").rstrip()
+                        new_css = f"{existing}\n\n/* ----- restyle ----- */\n{addition}\n"
+                    else:
+                        new_css = addition + "\n"
+                    data = new_css.encode("utf-8")
+                zout.writestr(info, data)
+    return buffer.getvalue()
+
+
 def package_theme(source_dir: str | Path) -> bytes:
     """Package a theme directory into ZIP bytes ready for upload.
 

@@ -19,8 +19,8 @@ Working: auth, vision, theme generation/preview/upload, site settings, and conte
 audience management (posts, tags, members, newsletters). Roadmap:
 
 - [x] Authenticated Admin API client (generic browse/read/add/edit/delete)
-- [x] **Vision**: `extract_brand` distils a live site's brand + navigation; `get_theme_structure` fetches its markup + CSS
-- [x] **Themes**: generate, preview locally, upload, list, and download themes
+- [x] **Vision**: `extract_brand` distils a live site's brand + navigation; `get_theme_structure` fetches its markup + CSS; `check_contrast` scores colour pairs against WCAG
+- [x] **Themes**: generate, preview locally, upload, restyle, list, download, and (guarded) activate themes
 - [x] **Site settings**: read/update brand + SEO metadata (title, description, accent, meta/OG/Twitter) and navigation menus
 - [x] **Management**: posts, tags, members, and newsletters as CRUD tools
 - [x] **Guided flow**: a `theme-a-site` prompt and a server instructions block encode the brand-first workflow
@@ -33,13 +33,16 @@ The server exposes these tools to the model:
 **Vision**
 - `extract_brand`: distil a live site into clean brand tokens (colour palette, heading/body fonts, logo, button style) plus its navigation menus (header/footer content links, with login/sign-up/account links flagged separately) to design against.
 - `get_theme_structure`: fetch a live page's HTML skeleton and linked CSS, so styling targets selectors that actually exist.
+- `check_contrast`: WCAG contrast ratio (and AA/AAA pass levels) between two colours, so text-on-accent stays readable.
 
 **Themes**
 - `create_theme`: generate a complete, valid, previewable theme from a CSS design (and optional `index`/`post`/`page`/`default` template overrides).
 - `preview_theme`: render a theme locally and serve it on localhost to review before publishing.
 - `upload_theme`: package and upload a theme; it installs **inactive**, so the live site is untouched.
+- `restyle_theme`: edit an installed theme's stylesheet (append or replace) and re-upload it, to iterate a theme without regenerating it.
 - `list_themes`: list installed themes and which one is active.
 - `download_theme`: download an installed theme's source as a zip.
+- `activate_theme`: make an installed theme the live one — **outward-facing**; only on explicit user instruction, never an automatic follow-on to upload/restyle.
 
 **Images**
 - `upload_image`: upload a local image file; returns a hosted URL to use for a post's `feature_image`, the site logo/icon, or a newsletter header.

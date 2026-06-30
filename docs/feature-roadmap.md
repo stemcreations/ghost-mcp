@@ -168,28 +168,34 @@ Browse/Read/Edit/Add for tiers and offers (no delete), and adds Delete for label
 
 # Tier 3 — deepen the styling / vision differentiator
 
-- **Navigation editing.** The nav is a site setting (`navigation` and
-  `secondary_navigation`, each a list of `{label, url}`). It's read today via
-  `get_site_settings` but not writable. Add `update_navigation(items, secondary=None)`
-  in `tools/settings.py` that writes the `navigation` setting through
-  `settings_api.update_settings`. Closes the loop: the theme styles the nav, this sets
-  its items.
-- **Restyle the active theme.** `download_theme` -> edit its `screen.css` ->
-  `upload_theme`, so a live theme can be iterated, not just regenerated. Could be a
-  `restyle_theme(name, css_append)` convenience that downloads, appends/replaces CSS,
-  and re-uploads (inactive).
-- **Palette contrast checks.** Pure-Python WCAG contrast ratio over `extract_brand`
-  colors (and the chosen accent vs. text/background), so generated themes don't ship
-  unreadable text-on-accent. Cheap, on-theme; add to `vision/` and surface in the
-  brand result or as a `check_contrast(foreground, background)` tool.
-- **Guarded theme activation.** Activation is intentionally manual (it changes the
-  live site). If exposed, it must be a distinct, clearly-labelled tool that the model
-  only calls on explicit user instruction (mirror the post-email caution).
-- **Preview screenshots (architectural decision).** Render the local preview to a PNG
-  so the model can *see* layout/spacing/contrast instead of building blind. High
-  impact, but needs a headless browser (Playwright/Chromium), which departs from this
-  repo's deliberate pure-Python, no-binaries stance. Decide that tradeoff before
-  building; if adopted, isolate it behind an optional extra so the core stays pure.
+✅ **Mostly implemented 2026-06-30.** Navigation editing, restyle, contrast checks, and
+guarded activation shipped with unit tests; only preview screenshots remain (deferred,
+see below). The specs are kept for reference.
+
+- **Navigation editing.** ✅ Done. `update_navigation(primary, secondary)` in
+  `tools/settings.py` writes the `navigation`/`secondary_navigation` settings via
+  `settings_api.update_settings`, and `extract_brand` reads a source site's menus
+  (splitting membership links out). Closes the loop: the theme styles the nav, this
+  sets its items.
+- **Restyle the active theme.** ✅ Done. `restyle_theme(name, css, mode="append")` in
+  `tools/theme.py` downloads the named theme, rewrites its
+  `assets/built/screen.css` (append, or `mode="replace"`), and re-uploads it. The pure
+  zip-rewrite is `theme/builder.py::restyle_archive` (unit-tested). Re-upload doesn't
+  activate, but restyling the *active* theme changes the live look.
+- **Palette contrast checks.** ✅ Done. `vision/contrast.py` computes the pure-Python
+  WCAG contrast ratio and AA/AAA levels; exposed as `check_contrast(foreground,
+  background)` in `tools/vision.py` so generated themes don't ship unreadable
+  text-on-accent.
+- **Guarded theme activation.** ✅ Done. `activate_theme(name)` in `tools/theme.py` is a
+  distinct, clearly-labelled tool over `admin/themes.py::activate_theme`; its docstring
+  instructs the model to call it only on explicit user instruction, never as a
+  follow-on to generate/upload/restyle (mirrors the post-email caution).
+- **Preview screenshots (architectural decision).** ⏳ Deferred. Render the local
+  preview to a PNG so the model can *see* layout/spacing/contrast instead of building
+  blind. High impact, but needs a headless browser (Playwright/Chromium), which departs
+  from this repo's deliberate pure-Python, no-binaries stance. Decide that tradeoff
+  before building; if adopted, isolate it behind an optional extra so the core stays
+  pure.
 
 ---
 
@@ -197,7 +203,10 @@ Browse/Read/Edit/Add for tiers and offers (no delete), and adds Delete for label
 
 - **No delete for members or newsletters** — the Admin API has none (capability table
   lines 448, 450). Newsletters retire via `status:archived`.
-- **No auto-activation of themes** — it changes the live site; stays manual.
+- **No *auto*-activation of themes** — activation is exposed as a distinct, guarded
+  `activate_theme` tool (Tier 3), but it must only run on explicit user instruction,
+  never as a silent follow-on to generate/upload/restyle. Upload still installs
+  inactive.
 - **Outward-facing actions** (sending a post email, activating a theme, publishing)
   require explicit user intent, never a silent side effect of an edit tool.
 - **Pure Python** — prefer solutions that don't pull in Node or browser binaries; if

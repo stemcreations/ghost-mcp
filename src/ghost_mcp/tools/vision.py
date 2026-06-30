@@ -2,8 +2,8 @@
 
 from fastmcp import FastMCP
 
+from ghost_mcp.vision import evaluate_contrast, fetch_theme_structure
 from ghost_mcp.vision import extract_brand as _extract_brand
-from ghost_mcp.vision import fetch_theme_structure
 
 
 def register(mcp: FastMCP) -> None:
@@ -68,3 +68,23 @@ def register(mcp: FastMCP) -> None:
             relevant stylesheet keyed by its URL.
         """
         return fetch_theme_structure(blog_url, path).to_dict()
+
+    @mcp.tool
+    def check_contrast(foreground: str, background: str) -> dict:
+        """Check the WCAG contrast ratio between two colours before shipping a theme.
+
+        Guards against unreadable text-on-accent: pass two colours -- as hex
+        (``#d97706``) or ``rgb()``/``rgba()`` -- such as a button's text vs. its
+        accent background, or body text vs. the page background. Use it on the
+        ``palette`` and accent from ``extract_brand`` when picking text colours.
+
+        Args:
+            foreground: The text/foreground colour (hex or ``rgb()``).
+            background: The colour behind it (hex or ``rgb()``).
+
+        Returns:
+            A mapping with the normalised colours, the contrast ``ratio``
+            (1.0-21.0), ``AA``/``AAA`` pass flags for ``normal`` and ``large``
+            text, the highest level cleared (``passes``), and a ``recommendation``.
+        """
+        return evaluate_contrast(foreground, background)

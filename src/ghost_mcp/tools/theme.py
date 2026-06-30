@@ -1,7 +1,11 @@
-"""Tools for generating, previewing, uploading, and listing Ghost themes.
+"""Tools for generating, previewing, uploading, restyling, listing, and activating
+Ghost themes.
 
-Activation is deliberately NOT exposed as a tool: it changes the live site, so it
-stays a manual step (Ghost Admin, or the Python helper) for safety.
+``activate_theme`` changes the live site, so it is a distinct, explicitly-guarded
+tool: call it only on the user's direct instruction to activate a named theme, never
+as a silent follow-on to generating, uploading, or restyling one (mirrors the
+``publish_post`` email caution). ``upload_theme`` installs inactive; ``restyle_theme``
+edits an installed theme's CSS and re-uploads it.
 """
 
 import atexit
@@ -13,7 +17,13 @@ from pathlib import Path
 from fastmcp import FastMCP
 
 from ghost_mcp.admin import themes
-from ghost_mcp.theme.builder import ThemeSpec, build_theme, nav_advisory, package_theme
+from ghost_mcp.theme.builder import (
+    ThemeSpec,
+    build_theme,
+    nav_advisory,
+    package_theme,
+    restyle_archive,
+)
 from ghost_mcp.theme.preview import serve_preview, write_preview
 from ghost_mcp.tools._client import admin_client
 
@@ -223,3 +233,57 @@ def register(mcp: FastMCP) -> None:
         path = Path(tempfile.mkdtemp(prefix="ghost-mcp-download-")) / f"{name}.zip"
         path.write_bytes(data)
         return {"path": str(path), "bytes": len(data)}
+
+    @mcp.tool
+    def restyle_theme(name: str, css: str, mode: str = "append") -> dict:
+        """Restyle an installed theme by editing its stylesheet, then re-upload it.
+
+        Iterate a theme already on the blog without regenerating it: this downloads
+        the named theme, rewrites its ``assets/built/screen.css`` -- appending new
+        rules by default, or ``mode="replace"`` to swap the whole stylesheet -- and
+        re-uploads it. The upload itself does NOT activate a theme. But if ``name``
+        is the ACTIVE theme, the new CSS is what visitors see, so this changes the
+        live look; confirm that's intended. Ghost re-validates on upload, so any
+        ``errors``/``warnings`` are returned.
+
+        Args:
+            name: The installed theme to restyle (see ``list_themes``).
+            css: CSS to append (default) or to replace the stylesheet with.
+            mode: ``"append"`` (safe default) or ``"replace"``.
+
+        Returns:
+            The theme ``name``, its ``active`` flag, validation ``errors``/
+            ``warnings``, and a note about live impact.
+        """
+        client = admin_client()
+        restyled = restyle_archive(themes.download_theme(client, name), css, mode=mode)
+        uploaded = themes.upload_theme(client, restyled, filename=f"{name}.zip")
+        return {
+            "name": uploaded.get("name"),
+            "active": uploaded.get("active"),
+            "errors": [e.get("rule") for e in (uploaded.get("errors") or [])],
+            "warnings": [w.get("rule") for w in (uploaded.get("warnings") or [])],
+            "note": (
+                "Re-uploaded with the restyled CSS. If this is the active theme the "
+                "change is live now; otherwise activate it to see it."
+            ),
+        }
+
+    @mcp.tool
+    def activate_theme(name: str) -> dict:
+        """Activate an installed theme, making it the LIVE theme. Changes the site.
+
+        This is the one theme tool that alters what visitors see: it switches the
+        blog's active theme. Call it ONLY on the user's explicit instruction to
+        activate a specific theme -- never as an automatic follow-on to generating,
+        uploading, or restyling one. Upload installs inactive on purpose so a theme
+        can be reviewed first; activation is the deliberate, separate go-live step.
+
+        Args:
+            name: The installed theme to activate (see ``list_themes``).
+
+        Returns:
+            The activated theme ``name`` and its ``active`` flag (True).
+        """
+        activated = themes.activate_theme(admin_client(), name)
+        return {"name": activated.get("name"), "active": activated.get("active")}
