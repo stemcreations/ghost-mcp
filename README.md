@@ -46,6 +46,8 @@ Activating a theme is intentionally **not** a tool — it changes the live site,
 
 ## Requirements
 
+- An **MCP client** to run it in — e.g. [Claude Desktop](https://claude.ai/download),
+  Cline, or Claude Code. This is an MCP *server*; it runs inside a client, not on its own.
 - Python 3.13+
 - [uv](https://docs.astral.sh/uv/)
 - A Ghost site and a **staff access token** (from your user profile page in Ghost
@@ -138,6 +140,31 @@ config-file location differs. To pass credentials through the client instead of 
   "GHOST_API_VERSION": "v6.0"
 }
 ```
+
+### Run without cloning
+
+To skip `git clone`, have `uvx` install and run the server straight from the repo —
+add this to the same config file (use the full path to `uvx` if your client doesn't
+have it on PATH):
+
+```json
+{
+  "mcpServers": {
+    "ghost": {
+      "command": "uvx",
+      "args": ["--from", "git+https://github.com/stemcreations/ghost-mcp.git", "ghost-mcp"],
+      "env": {
+        "GHOST_ADMIN_URL": "https://yourblog.example.com",
+        "GHOST_STAFF_ACCESS_TOKEN": "<id>:<secret>",
+        "GHOST_API_VERSION": "v6.0"
+      }
+    }
+  }
+}
+```
+
+`uvx` fetches and builds the package on first launch (git must be installed). With no
+local `.env`, the credentials come from the `env` block above.
 
 ## Authentication, briefly
 
