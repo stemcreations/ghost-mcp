@@ -4,9 +4,10 @@ An [MCP](https://modelcontextprotocol.io) server that builds your own Ghost blog
 theme from your existing theme and real website data.
 
 Most Ghost integrations manage content; this one handles how your blog *looks*. It
-gives the model your real data to design against: your live page's rendered HTML and
-CSS, your current theme, and your site settings. You get back a complete, custom
-theme to preview locally and upload when you're ready.
+gives the model your real data to design against: the brand (colours, fonts, logo)
+pulled from your live site, that page's rendered HTML and CSS, your current theme,
+and your site settings. You get back a complete, custom theme to preview locally and
+upload when you're ready.
 
 Styling and vision come first. The authenticated client underneath is generic, so
 the rest of the Ghost Admin API (posts, members, tags, and the other resources)
@@ -14,23 +15,27 @@ follows as thin tool wrappers, growing this into a full management server.
 
 ## Status
 
-Working: auth, vision, theme generation/preview/upload, and site settings. Roadmap:
+Working: auth, vision, theme generation/preview/upload, site settings, and posts +
+tags management. Roadmap:
 
 - [x] Authenticated Admin API client (generic browse/read/add/edit/delete)
-- [x] **Vision**: `get_theme_structure` fetches the live page's markup + CSS
+- [x] **Vision**: `extract_brand` distils a live site's brand; `get_theme_structure` fetches its markup + CSS
 - [x] **Themes**: generate, preview locally, upload, list, and download themes
 - [x] **Site settings**: read/update brand + SEO metadata (title, description, accent, meta/OG/Twitter)
-- [ ] **Management**: posts, members, newsletters, tags, … as CRUD tools (next)
+- [x] **Management**: posts and tags as CRUD tools
+- [x] **Guided flow**: a `theme-a-site` prompt and a server instructions block encode the brand-first workflow
+- [ ] **Management**: members, newsletters, … as CRUD tools (next)
 
 ## Tools
 
 The server exposes these tools to the model:
 
 **Vision**
+- `extract_brand`: distil a live site into clean brand tokens (colour palette, heading/body fonts, logo, button style) to design against.
 - `get_theme_structure`: fetch a live page's HTML skeleton and linked CSS, so styling targets selectors that actually exist.
 
 **Themes**
-- `create_theme`: generate a complete, valid, previewable theme from a CSS design (and optional template overrides).
+- `create_theme`: generate a complete, valid, previewable theme from a CSS design (and optional `index`/`post`/`page`/`default` template overrides).
 - `preview_theme`: render a theme locally and serve it on localhost to review before publishing.
 - `upload_theme`: package and upload a theme; it installs **inactive**, so the live site is untouched.
 - `list_themes`: list installed themes and which one is active.
@@ -41,7 +46,23 @@ The server exposes these tools to the model:
 - `update_site_metadata`: site title/description plus SEO and social metadata (`meta_*`, Open Graph, Twitter cards).
 - `update_branding`: the brand accent colour.
 
+**Posts**
+- `list_posts` / `get_post`: browse posts, or read one (with rendered HTML and a draft `preview_url`).
+- `create_post` / `update_post` / `delete_post`: write posts from HTML; drafts by default.
+
+**Tags**
+- `list_tags` / `get_tag`: browse tags (with post counts), or read one.
+- `create_tag` / `update_tag` / `delete_tag`: manage tags.
+
 Activating a theme is intentionally **not** a tool: it changes the live site, so it stays a manual step.
+
+### Guided workflow
+
+The server ships an `instructions` block (always in the model's context) encoding the
+recommended order (extract the brand, confirm direction, build, preview, then upload
+inactive), plus a **`theme-a-site` prompt** the user can invoke to start that guided
+flow. See [docs/theme-conventions.md](docs/theme-conventions.md) for the full
+template and CSS contract.
 
 ## Requirements
 
