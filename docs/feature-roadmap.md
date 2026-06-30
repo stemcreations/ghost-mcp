@@ -2,9 +2,41 @@
 
 Implementation-ready specs for features not yet built, grounded in the Ghost Admin
 API (`ghost-llms-full.txt`). Each entry lists the endpoint, the request/response
-shape, the tools to add, and the gotchas. Build order is top-down: Tier 1 completes
-the content workflow, Tier 2 adds the membership business, Tier 3 deepens the
-styling/vision differentiator.
+shape, the tools to add, and the gotchas.
+
+Work order: **bugs before features.** The "Bugs / fixes" section below tracks defects
+in already-shipped code (fixes to existing functions, not new capabilities) and is
+cleared first. The feature tiers are then top-down: Tier 1 completes the content
+workflow, Tier 2 adds the membership business, Tier 3 deepens the styling/vision
+differentiator.
+
+---
+
+# Bugs / fixes (do first)
+
+Defects in **already-shipped** code — fixes to existing functions, not new
+capabilities. Distinct from the feature tiers below; clear these first. New bugs land
+here as they're found.
+
+## 1. Previewer `foreach` dropped Ghost's loop-position `@`-data — ✅ Fixed 2026-06-30
+
+The `foreach` helper in `theme/preview.py` rendered each item with no loop-position
+data, so `{{@index}}` / `{{@number}}` / `{{@first}}` / `{{@last}}` / `{{@even}}` /
+`{{@odd}}` came out **blank in preview** even though they render live. A theme that
+styles by loop position (a class on the first/last card, zebra striping) looked broken
+locally while being correct on the real site. The prior workaround was to author the
+loop with `{{#each}}`, whose `@`-data pybars3 does provide.
+
+- **Fix:** wrap each rendered item in a pybars3 `Scope` carrying the `@`-data —
+  `@index`/`@first`/`@last` natively, `@number`/`@even`/`@odd` via `overrides` —
+  mirroring how pybars3's own `{{#each}}` works. (`@even` is true for 1-based even
+  items, i.e. odd 0-based index, matching Ghost.)
+- **Verified:** pybars3's `options["fn"]` accepts a `Scope` and `options["root"]` is
+  present for block helpers (`Compiler` sets both); the limit/`to` slicing still
+  applies, and `@last` is computed against the rendered slice. Covered by
+  `tests/test_preview.py::test_foreach_exposes_loop_position_data`.
+
+---
 
 ## How to add a tool group (recap)
 
@@ -144,12 +176,6 @@ Browse/Read/Edit/Add for tiers and offers (no delete), and adds Delete for label
 - **Guarded theme activation.** Activation is intentionally manual (it changes the
   live site). If exposed, it must be a distinct, clearly-labelled tool that the model
   only calls on explicit user instruction (mirror the post-email caution).
-- **Previewer `foreach` `@`-data fidelity.** Ghost's `{{#foreach}}` exposes
-  `@first`/`@last`/`@index`/`@number` (used for loop-position styling), but our stub in
-  `theme/preview.py` does not, so those render blank in preview even though they work
-  live (today the workaround is `{{#each}}`, whose `@`-data pybars3 does provide).
-  Enhance the `foreach` helper to pass `@`-data into `options["fn"]` so the preview
-  matches Ghost. Verify against pybars3's `options["fn"]` data-passing support first.
 - **Preview screenshots (architectural decision).** Render the local preview to a PNG
   so the model can *see* layout/spacing/contrast instead of building blind. High
   impact, but needs a headless browser (Playwright/Chromium), which departs from this

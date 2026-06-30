@@ -21,7 +21,7 @@ import shutil
 import threading
 from pathlib import Path
 
-from pybars import Compiler
+from pybars import Compiler, Scope
 
 from ghost_mcp.errors import ThemeError
 
@@ -166,7 +166,26 @@ def _build_helpers() -> dict:
             items = items[: int(limit)]
         if not items:
             return options["inverse"](this)  # render the {{else}} block on an empty feed
-        return [options["fn"](item) for item in items]
+        # Expose Ghost's loop-position @-data so position-based styling (e.g. a class
+        # on @first/@last, zebra striping on @even/@odd) renders in preview as it does
+        # live, instead of blank. pybars3's Scope carries @index/@first/@last natively;
+        # @number/@even/@odd ride along as overrides. @even is true for 1-based even
+        # items (0-based odd index), matching Ghost. Mirrors pybars3's own {{#each}}.
+        last = len(items) - 1
+        rendered = []
+        for index, item in enumerate(items):
+            extra = {"@number": index + 1, "@even": index % 2 == 1, "@odd": index % 2 == 0}
+            scope = Scope(
+                item,
+                this,
+                options["root"],
+                overrides=extra,
+                index=index,
+                first=index == 0,
+                last=index == last,
+            )
+            rendered.append(options["fn"](scope))
+        return rendered
 
     def helper_missing(this, *_args, **_kwargs):
         # Ghost ships many helpers this local previewer doesn't implement

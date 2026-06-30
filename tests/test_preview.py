@@ -66,6 +66,24 @@ def test_foreach_honours_limit_kwarg(tmp_path) -> None:
     assert html.count("[") == 2
 
 
+def test_foreach_exposes_loop_position_data(tmp_path) -> None:
+    # Ghost's foreach exposes @index/@number/@first/@last/@even/@odd for loop-position
+    # styling. The previewer must surface them too, or themes that style by position
+    # render blank locally while working live. Three sample posts -> deterministic data.
+    body = (
+        "{{#foreach posts}}"
+        "[{{@index}}|{{@number}}|{{#if @first}}F{{/if}}|"
+        "{{#if @last}}L{{/if}}|{{#if @even}}E{{/if}}|{{#if @odd}}O{{/if}}]"
+        "{{/foreach}}"
+    )
+    theme = _minimal_theme(tmp_path, body)
+    html = render_theme(theme)["index"]
+    # Fields are [index|number|first|last|even|odd].
+    assert "[0|1|F|||O]" in html  # post 1: first, odd
+    assert "[1|2|||E|]" in html  # post 2: even
+    assert "[2|3||L||O]" in html  # post 3: last, odd
+
+
 def test_unpreviewable_template_raises_clear_error(tmp_path) -> None:
     # A 'from=' loop arg can't be compiled by pybars3 ('from' is a Python keyword).
     # Rendering such a theme directly should fail with a clear ThemeError, not a raw
