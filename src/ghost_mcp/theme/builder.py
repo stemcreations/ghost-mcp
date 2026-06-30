@@ -36,6 +36,10 @@ _FROM_HASH_ARG = re.compile(r"\{\{[^}]*\bfrom\s*=")
 #: Detects a Handlebars layout directive, e.g. ``{{!< default}}``.
 _LAYOUT_DIRECTIVE = re.compile(r"\{\{!<\s*[\w-]+\s*\}\}")
 
+#: Detects the ``{{{body}}}`` (or ``{{body}}``) tag where the layout injects child
+#: templates. A ``default.hbs`` without it renders every page empty.
+_LAYOUT_BODY = re.compile(r"\{\{\{?\s*body\s*\}?\}\}")
+
 _DEFAULT_HBS = """<!DOCTYPE html>
 <html lang="{{@site.locale}}">
 <head>
@@ -350,6 +354,14 @@ def build_theme(spec: ThemeSpec, out_dir: str | Path) -> Path:
     templates = dict(_SKELETON)
     for name, source in spec.templates.items():
         _ensure_previewable(name, source)
+        # The layout (default.hbs) must inject children via {{{body}}}; without it
+        # every page renders with no content. Guard the override the same way we
+        # guard content templates below.
+        if name == "default" and not _LAYOUT_BODY.search(source):
+            raise ThemeError(
+                "the 'default' layout override must contain a {{{body}}} tag where "
+                "child templates are injected; without it every page renders empty."
+            )
         # A content template is a body fragment that must inherit the site layout
         # (default.hbs) via a {{!< default}} directive; without it Ghost and the
         # local previewer render it as a bare fragment with no <head>, so the

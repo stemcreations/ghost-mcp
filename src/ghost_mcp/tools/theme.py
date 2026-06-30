@@ -57,6 +57,7 @@ def register(mcp: FastMCP) -> None:
         index_template: str | None = None,
         post_template: str | None = None,
         page_template: str | None = None,
+        default_template: str | None = None,
     ) -> dict:
         """Generate a complete, valid, previewable Ghost theme on disk.
 
@@ -66,16 +67,22 @@ def register(mcp: FastMCP) -> None:
         accent colour is available in CSS as ``var(--ghost-accent-color)``, so the
         theme respects the user's existing branding.
 
-        Optionally override the home/post/page templates with your own Handlebars.
-        Stay within the previewable helper subset: ``{{#if}}``/``{{#unless}}``,
-        ``{{#foreach}}``, ``{{#post}}``, partials, and bare fields like ``{{title}}``
+        Optionally override the home/post/page templates, and the ``default.hbs``
+        layout itself, with your own Handlebars. Stay within the previewable helper
+        subset: ``{{#if}}``/``{{#unless}}``, ``{{#foreach}}`` (with ``limit=``/``to=``,
+        but not ``from=``), ``{{#post}}``, partials, and bare fields like ``{{title}}``
         and ``{{content}}``. Avoid block params (``as |x|``) and the helpers Ghost
         evaluates server-side (``{{#get}}``, ``{{#match}}``, ``{{#is}}``,
-        ``{{date}}``) -- block params are rejected outright, and the rest won't
-        render in the local preview. Layout inheritance is handled for you: the
-        ``{{!< default}}`` directive is injected if an override omits it, so the
-        page is always wrapped in the site layout and the stylesheet loads. See
-        ``docs/theme-conventions.md`` for the full contract.
+        ``{{date}}``) -- block params and ``from=`` are rejected outright, and the
+        rest render blank in the local preview.
+
+        For content templates (index/post/page), layout inheritance is handled for
+        you: the ``{{!< default}}`` directive is injected if an override omits it.
+        A ``default_template`` override replaces the whole layout, so it MUST include
+        ``{{{body}}}`` (where child templates inject) and should keep
+        ``{{asset "built/screen.css"}}``, ``{{ghost_head}}``, and ``{{ghost_foot}}``
+        so styling, SEO, and members keep working. See ``docs/theme-conventions.md``
+        for the full contract.
 
         After generating, call ``preview_theme`` with the returned path to view it,
         then ``upload_theme`` to install it (activation stays manual).
@@ -87,6 +94,8 @@ def register(mcp: FastMCP) -> None:
             index_template: Optional Handlebars override for the home template.
             post_template: Optional Handlebars override for the single-post template.
             page_template: Optional Handlebars override for the page template.
+            default_template: Optional Handlebars override for the ``default.hbs``
+                layout. Must contain ``{{{body}}}``.
 
         Returns:
             A mapping with the generated ``theme_path`` and the list of files written.
@@ -94,6 +103,7 @@ def register(mcp: FastMCP) -> None:
         overrides = {
             key: value
             for key, value in (
+                ("default", default_template),
                 ("index", index_template),
                 ("post", post_template),
                 ("page", page_template),

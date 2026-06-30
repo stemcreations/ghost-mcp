@@ -101,6 +101,26 @@ def test_override_keeps_its_own_layout_directive(tmp_path) -> None:
     assert (theme / "index.hbs").read_text().count("{{!< default}}") == 1
 
 
+def test_default_layout_can_be_overridden(tmp_path) -> None:
+    # The default.hbs layout itself is overridable; its content is used verbatim
+    # (no {{!< default}} injection, since the layout doesn't inherit itself), and the
+    # generated theme still previews.
+    custom = (
+        "<!DOCTYPE html><html><head>{{ghost_head}}</head>"
+        '<body class="custom-shell">{{{body}}}</body></html>'
+    )
+    theme = build_theme(ThemeSpec(name="t", templates={"default": custom}), tmp_path)
+    assert (theme / "default.hbs").read_text() == custom
+    assert "custom-shell" in render_theme(theme)["index"]
+
+
+def test_default_layout_override_without_body_is_rejected(tmp_path) -> None:
+    # A layout with no {{{body}}} would render every page empty, so it's rejected.
+    spec = ThemeSpec(name="t", templates={"default": "<html><head></head><body></body></html>"})
+    with pytest.raises(ThemeError):
+        build_theme(spec, tmp_path)
+
+
 def test_generated_theme_is_previewable(tmp_path) -> None:
     theme = build_theme(ThemeSpec(name="t", styles="body { color: blue; }"), tmp_path)
     pages = render_theme(theme)
