@@ -21,6 +21,8 @@ ghost-llms-full.txt
 handoffdoc.md
 # Ghost's official "Source" theme, kept locally as a reference for the builder
 source/
+# Design note; its content now lives in server.py instructions + the theme-a-site prompt
+ghost-mcp-theming-guidance.md
 landing.html
 serenitybook_blog_article_ideas.md
 SECURITY_REVIEW.md

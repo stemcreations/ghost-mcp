@@ -102,15 +102,16 @@ def test_override_keeps_its_own_layout_directive(tmp_path) -> None:
 
 
 def test_default_layout_can_be_overridden(tmp_path) -> None:
-    # The default.hbs layout itself is overridable; its content is used verbatim
-    # (no {{!< default}} injection, since the layout doesn't inherit itself), and the
-    # generated theme still previews.
+    # The default.hbs layout itself is overridable: no {{!< default}} is injected
+    # (the layout doesn't inherit itself) and the author's chrome is preserved.
     custom = (
         "<!DOCTYPE html><html><head>{{ghost_head}}</head>"
         '<body class="custom-shell">{{{body}}}</body></html>'
     )
     theme = build_theme(ThemeSpec(name="t", templates={"default": custom}), tmp_path)
-    assert (theme / "default.hbs").read_text() == custom
+    default_hbs = (theme / "default.hbs").read_text()
+    assert "{{!< default}}" not in default_hbs
+    assert 'class="custom-shell"' in default_hbs
     assert "custom-shell" in render_theme(theme)["index"]
 
 
@@ -119,6 +120,43 @@ def test_default_layout_override_without_body_is_rejected(tmp_path) -> None:
     spec = ThemeSpec(name="t", templates={"default": "<html><head></head><body></body></html>"})
     with pytest.raises(ThemeError):
         build_theme(spec, tmp_path)
+
+
+def test_default_override_gets_stylesheet_link_injected(tmp_path) -> None:
+    # A custom layout with no stylesheet <link> would never load the CSS ({{asset}}
+    # alone only emits a URL); the builder injects a real <link> before </head>.
+    custom = "<!DOCTYPE html><html><head>{{ghost_head}}</head><body>{{{body}}}</body></html>"
+    theme = build_theme(ThemeSpec(name="t", templates={"default": custom}), tmp_path)
+    default_hbs = (theme / "default.hbs").read_text()
+    assert 'rel="stylesheet"' in default_hbs
+    assert default_hbs.count("screen.css") == 1
+    assert "/assets/built/screen.css" in render_theme(theme)["index"]
+
+
+def test_default_override_gets_ghost_head_and_foot_injected(tmp_path) -> None:
+    # A custom layout missing {{ghost_head}}/{{ghost_foot}} would break SEO, the
+    # accent colour, and members; the builder injects them before </head>/</body>.
+    custom = (
+        "<!DOCTYPE html><html><head>"
+        '<link rel="stylesheet" href="{{asset "built/screen.css"}}"></head>'
+        "<body>{{{body}}}</body></html>"
+    )
+    default_hbs = (
+        build_theme(ThemeSpec(name="t", templates={"default": custom}), tmp_path) / "default.hbs"
+    ).read_text()
+    assert "{{ghost_head}}" in default_hbs
+    assert "{{ghost_foot}}" in default_hbs
+
+
+def test_default_override_keeps_its_own_stylesheet_link(tmp_path) -> None:
+    # An author who already wired the <link> doesn't get a duplicate injected.
+    custom = (
+        "<!DOCTYPE html><html><head>"
+        '<link rel="stylesheet" href="{{asset "built/screen.css"}}">{{ghost_head}}'
+        "</head><body>{{{body}}}</body></html>"
+    )
+    theme = build_theme(ThemeSpec(name="t", templates={"default": custom}), tmp_path)
+    assert (theme / "default.hbs").read_text().count("screen.css") == 1
 
 
 def test_generated_theme_is_previewable(tmp_path) -> None:

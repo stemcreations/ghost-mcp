@@ -50,13 +50,17 @@ previewer renders. `tag`/`author`/`home`/`error` are conventional add-ons.
 | --- | --- | --- |
 | `{{ghost_head}}` | last thing before `</head>` | SEO/meta/structured data, **accent color**, Koenig `cards.min.css`. |
 | `{{ghost_foot}}` | last thing before `</body>` | Ghost's functional scripts (members/Portal, etc.). |
-| `{{asset "built/screen.css"}}` | in `<head>` | Stylesheet link, with cache-busting. |
+| `<link … href="{{asset "built/screen.css"}}">` | in `<head>` | The stylesheet. `{{asset}}` only emits the URL with cache-busting, so it must sit inside a real `<link rel="stylesheet">` — a bare `{{asset …}}` renders as visible text and loads nothing. |
 | `{{body_class}}` | on `<body>` | Context classes (`post-template`, `tag-template`, …). |
 | `{{{body}}}` | in `<body>` | Where the child template is injected (triple-stache = unescaped). |
 | `<html lang="{{@site.locale}}">` | root | Site locale. |
 
 Omitting `{{ghost_head}}` or `{{ghost_foot}}` is a `gscan` error and breaks SEO,
-the accent color, members, and card rendering.
+the accent color, members, and card rendering. If a `default_template` override
+omits the stylesheet `<link>` entirely, the builder injects one before `</head>`
+(the same safety net as the `{{!< default}}` injection for content templates) — but
+a `default.hbs` without `{{{body}}}` is rejected at build, since it would render
+every page empty.
 
 ## Content templates
 
@@ -271,14 +275,54 @@ builder's `upload_theme` tool surfaces Ghost's returned `errors`/`warnings`.
 
 ---
 
+## Patterns
+
+Small recipes that stay inside the previewable subset and avoid the traps above.
+
+**Featured-first feed (no `from=`).** `from=` is rejected, so you can't run a second
+loop that skips the first post. Instead run one loop and style the first card with
+CSS `:first-child`:
+
+```handlebars
+<section class="post-feed">
+{{#foreach posts}}
+  <article class="post-card">…</article>
+{{/foreach}}
+</section>
+```
+```css
+.post-card:first-child { /* hero treatment: larger, full-width, etc. */ }
+```
+
+**Feature image with a fallback.** Posts without a `feature_image` shouldn't leave a
+broken-looking card. Render the image when present, and a branded solid block (use
+the accent token) otherwise:
+
+```handlebars
+{{#if feature_image}}
+  <img class="post-card-image" src="{{feature_image}}" alt="{{title}}">
+{{else}}
+  <div class="post-card-image post-card-image--placeholder"></div>
+{{/if}}
+```
+```css
+.post-card-image--placeholder { aspect-ratio: 16 / 9; background: var(--accent); }
+```
+
+**Custom layout (`default_template`).** Must contain `{{{body}}}` (rejected without
+it). The stylesheet `<link>`, `{{ghost_head}}`, and `{{ghost_foot}}` are auto-injected
+if you leave them out, but include them yourself for clarity — and remember a bare
+`{{asset "built/screen.css"}}` is just a URL, so it must live inside a `<link>`.
+
 ## What the builder generates vs. leaves to the model
 
 - **Generates:** `default`/`index`/`post`/`page`, a `package.json` with the fields
   above, and the token + grid-canvas base CSS. Always valid and previewable.
 - **Model supplies:** the design (CSS via `styles`) and, optionally, template
-  overrides — which must stay inside the previewable subset above. Use the
-  `get_theme_structure` vision tool to target real selectors on the rendered page
-  rather than guessing.
+  overrides — which must stay inside the previewable subset above. Start by calling
+  `extract_brand` on the customer's live site for a palette/fonts/logo to match, and
+  use `get_theme_structure` to target real selectors on the rendered page rather than
+  guessing.
 - **Left to the live blog:** members/Portal, navigation, pagination, search,
   responsive image sizing, and full Koenig card styling (via `card_assets`) — all of
   which work once the theme is activated, even though the local preview can't show

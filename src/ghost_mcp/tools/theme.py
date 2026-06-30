@@ -79,10 +79,14 @@ def register(mcp: FastMCP) -> None:
         For content templates (index/post/page), layout inheritance is handled for
         you: the ``{{!< default}}`` directive is injected if an override omits it.
         A ``default_template`` override replaces the whole layout, so it MUST include
-        ``{{{body}}}`` (where child templates inject) and should keep
-        ``{{asset "built/screen.css"}}``, ``{{ghost_head}}``, and ``{{ghost_foot}}``
-        so styling, SEO, and members keep working. See ``docs/theme-conventions.md``
-        for the full contract.
+        ``{{{body}}}`` (where child templates inject) -- a layout without it is
+        rejected, since every page would render empty. The stylesheet ``<link>`` and
+        ``{{ghost_head}}``/``{{ghost_foot}}`` are auto-injected before ``</head>`` /
+        ``</body>`` if you omit them, so styling, SEO, the accent colour, and members
+        keep working. Note ``{{asset "built/screen.css"}}`` only emits the URL -- to
+        load the CSS it must sit inside a real
+        ``<link rel="stylesheet" href="{{asset "built/screen.css"}}">``. See
+        ``docs/theme-conventions.md`` for the full contract.
 
         After generating, call ``preview_theme`` with the returned path to view it,
         then ``upload_theme`` to install it (activation stays manual).
@@ -125,22 +129,35 @@ def register(mcp: FastMCP) -> None:
         site. The render is a style-focused mockup: structure and CSS are faithful,
         while content is sampled and some dynamic helpers are stubbed.
 
+        Only one preview runs at a time: each call stops the previous server and
+        replaces it, so older preview URLs go dead. Always hand the user the URL from
+        the most recent call.
+
         Args:
             theme_path: Path to the theme directory to preview.
 
         Returns:
-            A mapping with the base ``preview_url`` and the URL of each rendered page.
+            A mapping with the base ``preview_url``, its ``port``, the URL of each
+            rendered ``pages`` entry, and a ``note`` about the replaced preview.
         """
         with _preview_lock:
+            replaced = _active_preview.get("server") is not None
             _stop_active_preview_locked()
             out_dir = tempfile.mkdtemp(prefix="ghost-mcp-preview-")
             written = write_preview(theme_path, out_dir)
             url, server = serve_preview(out_dir)
             _active_preview["server"] = server
             _active_preview["out_dir"] = out_dir
+            port = server.server_address[1]
         return {
             "preview_url": url,
+            "port": port,
             "pages": {name: f"{url}{path.name}" for name, path in written.items()},
+            "note": (
+                "Only one preview runs at a time; this call "
+                + ("replaced the previous preview (its URL is now dead). " if replaced else "")
+                + "Always share the URL above, not an earlier one."
+            ),
         }
 
     @mcp.tool

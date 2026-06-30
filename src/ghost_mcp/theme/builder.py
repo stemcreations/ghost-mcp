@@ -40,6 +40,23 @@ _LAYOUT_DIRECTIVE = re.compile(r"\{\{!<\s*[\w-]+\s*\}\}")
 #: templates. A ``default.hbs`` without it renders every page empty.
 _LAYOUT_BODY = re.compile(r"\{\{\{?\s*body\s*\}?\}\}")
 
+#: Detects an existing ``<link>`` to the stylesheet, so we don't inject a second one.
+_STYLESHEET_LINK = re.compile(r"<link[^>]*screen\.css", re.IGNORECASE)
+
+#: The closing ``</head>``/``</body>`` tags, where missing layout essentials are injected.
+_HEAD_CLOSE = re.compile(r"</head>", re.IGNORECASE)
+_BODY_CLOSE = re.compile(r"</body>", re.IGNORECASE)
+
+#: Ghost's required output helpers, detected so we don't inject a duplicate.
+_GHOST_HEAD = re.compile(r"\{\{\s*ghost_head\s*\}\}")
+_GHOST_FOOT = re.compile(r"\{\{\s*ghost_foot\s*\}\}")
+
+#: The stylesheet link a layout needs. ``{{asset}}`` only emits the URL, so it must
+#: live inside a real ``<link>`` to actually load the CSS.
+_STYLESHEET_TAG = (
+    '    <link rel="stylesheet" type="text/css" href="{{asset "built/screen.css"}}">\n'
+)
+
 _DEFAULT_HBS = """<!DOCTYPE html>
 <html lang="{{@site.locale}}">
 <head>
@@ -291,6 +308,33 @@ def _slugify(name: str) -> str:
     return slug or "ghost-mcp-theme"
 
 
+def _inject_before(source: str, close: re.Pattern[str], snippet: str) -> str:
+    """Insert ``snippet`` immediately before the first match of ``close`` (or no-op)."""
+    if not close.search(source):
+        return source
+    return close.sub(lambda m: snippet + m.group(0), source, count=1)
+
+
+def _ensure_layout_essentials(source: str) -> str:
+    """Inject the bits a custom layout needs to actually work, when they're missing.
+
+    A ``default.hbs`` is easy to write in a way that silently breaks: the stylesheet
+    must sit inside a real ``<link>`` (``{{asset …}}`` alone only emits a URL that
+    renders as bare text), and Ghost's ``{{ghost_head}}``/``{{ghost_foot}}`` carry
+    SEO, the accent colour, members, and card assets. Inject each before the
+    matching close tag if absent -- the same safety net as the ``{{!< default}}``
+    auto-injection for content templates. (``{{{body}}}`` can't be injected: there's
+    no way to know where content belongs, so a layout lacking it is rejected.)
+    """
+    if not _STYLESHEET_LINK.search(source):
+        source = _inject_before(source, _HEAD_CLOSE, _STYLESHEET_TAG)
+    if not _GHOST_HEAD.search(source):
+        source = _inject_before(source, _HEAD_CLOSE, "    {{ghost_head}}\n")
+    if not _GHOST_FOOT.search(source):
+        source = _inject_before(source, _BODY_CLOSE, "    {{ghost_foot}}\n")
+    return source
+
+
 def _ensure_previewable(name: str, source: str) -> None:
     if _BLOCK_PARAMS.search(source):
         raise ThemeError(
@@ -354,19 +398,22 @@ def build_theme(spec: ThemeSpec, out_dir: str | Path) -> Path:
     templates = dict(_SKELETON)
     for name, source in spec.templates.items():
         _ensure_previewable(name, source)
-        # The layout (default.hbs) must inject children via {{{body}}}; without it
-        # every page renders with no content. Guard the override the same way we
-        # guard content templates below.
-        if name == "default" and not _LAYOUT_BODY.search(source):
-            raise ThemeError(
-                "the 'default' layout override must contain a {{{body}}} tag where "
-                "child templates are injected; without it every page renders empty."
-            )
-        # A content template is a body fragment that must inherit the site layout
-        # (default.hbs) via a {{!< default}} directive; without it Ghost and the
-        # local previewer render it as a bare fragment with no <head>, so the
-        # stylesheet never loads. Overrides routinely omit the line, so restore it.
-        if name in _CONTENT_TEMPLATES and not _LAYOUT_DIRECTIVE.search(source):
+        if name == "default":
+            # The layout must inject children via {{{body}}}; without it every page
+            # renders with no content.
+            if not _LAYOUT_BODY.search(source):
+                raise ThemeError(
+                    "the 'default' layout override must contain a {{{body}}} tag where "
+                    "child templates are injected; without it every page renders empty."
+                )
+            # Inject the stylesheet <link> and ghost_head/ghost_foot if the override
+            # left them out, so a hand-written layout can't silently break styling/SEO.
+            source = _ensure_layout_essentials(source)
+        elif name in _CONTENT_TEMPLATES and not _LAYOUT_DIRECTIVE.search(source):
+            # A content template is a body fragment that must inherit the site layout
+            # (default.hbs) via a {{!< default}} directive; without it Ghost and the
+            # local previewer render it as a bare fragment with no <head>, so the
+            # stylesheet never loads. Overrides routinely omit the line, so restore it.
             source = "{{!< default}}\n" + source
         templates[name] = source
     for name, source in templates.items():
