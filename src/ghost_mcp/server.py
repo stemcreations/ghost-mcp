@@ -42,14 +42,28 @@ Gotchas that will bite you otherwise:
   builder injects the <link> for default_template overrides that omit it.)
 - Content templates must start with {{!< default}} to inherit the layout; the builder
   injects it if missing. A default_template must contain {{{body}}} or it's rejected.
-- The local previewer renders only a subset of Ghost's Handlebars. {{date}}, {{#get}},
-  {{navigation}}, {{pagination}} and other server-side helpers render BLANK in preview
-  (they work once uploaded). Block params (as |x|) and from= are rejected outright --
-  to feature the first post, use a CSS :first-child rule, not {{#foreach posts from=}}.
+- The local previewer renders only a subset of Ghost's Handlebars. Block params
+  (as |x|) and from= are rejected outright -- to feature the first post, use a CSS
+  :first-child rule, not {{#foreach posts from=}}.
 - Preview servers are ephemeral: each preview_theme call replaces the previous one, so
   older preview URLs stop working. Always use the most recent URL.
 - get_theme_structure only fetches PUBLIC http(s) URLs; it refuses localhost/private
   hosts by design.
+
+Live-only helpers: some helpers are standard and correct on the live site but render
+BLANK (or are skipped) in local preview. Use them anyway for production themes -- do
+not avoid one just because the preview can't show it; style it and confirm it on the
+live site:
+
+- {{navigation}} for the admin-managed header/footer menus (Settings > Navigation), so
+  the site owner controls the links. {{navigation type="secondary"}} for the secondary
+  menu. Prefer this over hardcoding menu links.
+- {{pagination}} for moving between pages of posts; {{author}}/{{authors}} and {{date}}
+  for real author and date data.
+
+Do NOT hardcode menu links into the template unless the user specifically wants fixed
+links the post author should not be able to change (e.g. links to the main marketing
+site). Make that a deliberate choice, not a side effect of the preview rendering empty.
 
 See docs/theme-conventions.md for the full template/CSS contract.
 """

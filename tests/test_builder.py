@@ -5,7 +5,7 @@ import json
 import pytest
 
 from ghost_mcp.errors import ThemeError
-from ghost_mcp.theme.builder import ThemeSpec, build_theme
+from ghost_mcp.theme.builder import ThemeSpec, build_theme, nav_advisory
 from ghost_mcp.theme.preview import render_theme
 
 REQUIRED_FILES = (
@@ -157,6 +157,22 @@ def test_default_override_keeps_its_own_stylesheet_link(tmp_path) -> None:
     )
     theme = build_theme(ThemeSpec(name="t", templates={"default": custom}), tmp_path)
     assert (theme / "default.hbs").read_text().count("screen.css") == 1
+
+
+def test_nav_advisory_flags_hardcoded_nav() -> None:
+    # A hardcoded <nav> with no {{navigation}} silently ignores Ghost's admin menus.
+    advisory = nav_advisory("<body><nav><a href='/'>Home</a></nav>{{{body}}}</body>")
+    assert advisory is not None and "{{navigation}}" in advisory
+
+
+def test_nav_advisory_silent_when_navigation_used() -> None:
+    assert nav_advisory("<body><nav>{{navigation}}</nav>{{{body}}}</body>") is None
+    assert nav_advisory("<nav>{{#foreach navigation}}{{label}}{{/foreach}}</nav>") is None
+
+
+def test_nav_advisory_silent_without_nav_or_override() -> None:
+    assert nav_advisory("<body><header>{{@site.title}}</header>{{{body}}}</body>") is None
+    assert nav_advisory(None) is None
 
 
 def test_generated_theme_is_previewable(tmp_path) -> None:

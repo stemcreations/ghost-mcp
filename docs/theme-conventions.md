@@ -107,29 +107,41 @@ The previewer (`theme/preview.py`) supports only:
 | `{{img_url x size="m"}}` | Valid on live Ghost; previewer returns the URL unchanged (size/format ignored). |
 | `@site`, `@custom`, `@page` | Data globals from `default_sample()`. |
 
-**Not supported by the previewer — keep these out of generated templates** (they all
-appear throughout Source, which is why Source itself is *not* previewable by this
-tool — use it as a reference for structure and class names, never copy-paste):
+The list above is what the **preview** can render. It is **not** the list of what a
+theme may use. Two more categories matter, and they are different in kind: one is a
+hard "cannot use," the other is "correct and encouraged for the live theme, just
+invisible in preview." Do not conflate them — treating a live-only helper as
+forbidden is how themes end up hardcoding things Ghost is meant to manage (see
+[Navigation](#navigation)).
 
-- **Block params (rejected at build):** `{{#get … as |recent|}}`,
-  `{{#foreach posts as |p|}}`. `_ensure_previewable` raises on these.
-- **`from=` loop argument (rejected at build):** `{{#foreach posts from="5"}}`.
-  pybars3 turns hash args into Python keyword arguments and `from` is a Python
-  keyword, so the generated code won't compile — an unfixable pybars3 limitation.
-  Use `limit=` / `to=` to slice a loop instead (those *do* work in preview).
-- **Server-side helpers (degrade to empty):** `{{#get}}` (DB queries), `{{#match}}`,
-  `{{#is}}`, `{{#has}}`, `{{date format=…}}`, `{{social_url}}`, `{{navigation}}`,
-  `{{pagination}}`, `{{t}}` (i18n), `{{@config.*}}`, `{{recommendations}}`,
-  `{{comments}}`, `{{excerpt words=…}}`. The previewer installs a `helperMissing`
-  catch-all, so these render **blank** locally rather than crashing the preview —
-  they work for real once the theme is uploaded. (Bare `{{excerpt}}` / `{{title}}`
-  field lookups are unaffected; only the *helper* forms degrade.)
-- **Loop `@`-data not stubbed:** `@number`, `@index`, `@first`, `@last` — render
-  blank locally.
+**Rejected at build (cannot use — `_ensure_previewable` raises):**
 
-Net: the previewer no longer hard-fails on an unknown helper; the only constructs
-that abort a build are block params and `from=` (both caught with a clear message).
-If a template needs the degraded helpers, upload and verify on the live site.
+- **Block params:** `{{#get … as |recent|}}`, `{{#foreach posts as |p|}}`.
+- **`from=` loop argument:** `{{#foreach posts from="5"}}`. pybars3 turns hash args
+  into Python keyword arguments and `from` is a Python keyword, so the generated code
+  won't compile. Slice with `limit=` / `to=` instead (those work in preview), or
+  feature the first item with a CSS `:first-child` rule.
+
+**Live-only helpers (use them for production themes — they render blank in local
+preview, then work once uploaded):** the previewer installs a `helperMissing`
+catch-all, so these degrade to empty rather than crashing. They are standard,
+correct, and **encouraged** on the live site. Do not avoid one just because the
+preview can't show it — style it, then confirm it on the live site.
+
+- `{{navigation}}` / `{{navigation type="secondary"}}` — admin-managed header/footer
+  menus. **Prefer this over hardcoding menu links.** See [Navigation](#navigation).
+- `{{pagination}}` — move between pages of posts.
+- `{{author}}` / `{{authors}}`, `{{date}}` — real author and date data.
+- Membership gating inside `{{content}}` (the upgrade/sign-up CTA Ghost outputs for
+  gated posts), `{{#get}}` data queries, `{{#match}}` / `{{#is}}` / `{{#has}}` flow
+  helpers, `{{social_url}}`, `{{t}}` (i18n), `{{@config.*}}`, `{{recommendations}}`,
+  `{{comments}}`, `{{excerpt words=…}}`.
+- Loop `@`-data: `@number`, `@index`, `@first`, `@last`.
+
+(Bare `{{excerpt}}` / `{{title}}` field lookups are unaffected; only the *helper*
+forms degrade.) Source uses the live-only helpers throughout, which is why Source
+isn't previewable by this tool — read it for structure and class names, but don't
+copy-paste its helper usage into a template you intend to preview.
 
 ---
 
@@ -218,12 +230,43 @@ convention, all client-side (handled by Ghost's Portal script via `{{ghost_foot}
 
 ## Navigation
 
-- `{{navigation}}` — primary menu (Settings → Navigation), rendered from a preset
-  partial unless you override `navigation.hbs`.
-- `{{navigation type="secondary"}}` — secondary/footer menu.
-- Logo/home links point to `{{@site.url}}`.
+Ghost has an admin-managed menu system (Settings → Navigation). Use it so the site
+owner controls the links, instead of hardcoding `<a>` tags into the layout. This is a
+**live-only** helper: it renders blank in local preview, then populates on the live
+site. That empty preview is expected, not a bug — style the nav and confirm the menu
+in Ghost admin.
 
-Both are server-side helpers — not previewable locally.
+The simplest version is the bare helper, which emits a preset `<ul class="nav">`:
+
+```handlebars
+{{navigation}}                      {{!-- primary menu --}}
+{{navigation type="secondary"}}     {{!-- secondary/footer menu --}}
+```
+
+For custom markup, add `partials/navigation.hbs` and loop the items yourself. Each
+item exposes `label`, `url`, `slug`, and `current`:
+
+```handlebars
+<nav class="site-nav">
+  <ul>
+    {{#foreach navigation}}
+      <li class="nav-{{slug}}{{#if current}} nav-current{{/if}}">
+        <a href="{{url}}">{{label}}</a>
+      </li>
+    {{/foreach}}
+  </ul>
+</nav>
+```
+
+A single `navigation.hbs` styles both menus; branch with `{{#if isSecondary}}…{{/if}}`
+to differ. Logo/home links point to `{{@site.url}}`.
+
+**When to hardcode instead.** Admin-managed nav is the default, but fixed links are
+sometimes the right call — e.g. a blog whose topbar points at the main marketing site
+(`Product`, `Pricing`, `Start free trial`), which the person managing blog posts
+should not be able to edit. Hardcode in that case, but make it a deliberate choice,
+not an accident of the preview rendering empty. (`create_theme` returns a soft
+advisory when a `default_template` has a hardcoded `<nav>` and no `{{navigation}}`.)
 
 ## Pagination
 

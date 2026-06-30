@@ -13,7 +13,7 @@ from pathlib import Path
 from fastmcp import FastMCP
 
 from ghost_mcp.admin import themes
-from ghost_mcp.theme.builder import ThemeSpec, build_theme, package_theme
+from ghost_mcp.theme.builder import ThemeSpec, build_theme, nav_advisory, package_theme
 from ghost_mcp.theme.preview import serve_preview, write_preview
 from ghost_mcp.tools._client import admin_client
 
@@ -117,7 +117,10 @@ def register(mcp: FastMCP) -> None:
         spec = ThemeSpec(name=name, styles=styles, description=description, templates=overrides)
         theme_dir = build_theme(spec, tempfile.mkdtemp(prefix="ghost-mcp-theme-"))
         files = sorted(str(p.relative_to(theme_dir)) for p in theme_dir.rglob("*") if p.is_file())
-        return {"theme_path": str(theme_dir), "files": files}
+        result = {"theme_path": str(theme_dir), "files": files}
+        if advisory := nav_advisory(default_template):
+            result["warnings"] = [advisory]
+        return result
 
     @mcp.tool
     def preview_theme(theme_path: str) -> dict:

@@ -40,6 +40,11 @@ _LAYOUT_DIRECTIVE = re.compile(r"\{\{!<\s*[\w-]+\s*\}\}")
 #: templates. A ``default.hbs`` without it renders every page empty.
 _LAYOUT_BODY = re.compile(r"\{\{\{?\s*body\s*\}?\}\}")
 
+#: Detects a hardcoded ``<nav>`` element and whether the admin-managed navigation
+#: system is used, so the builder can advise (not force) ``{{navigation}}``.
+_HARDCODED_NAV = re.compile(r"<nav\b", re.IGNORECASE)
+_USES_NAVIGATION = re.compile(r"\{\{[^}]*\bnavigation\b")
+
 #: Detects an existing ``<link>`` to the stylesheet, so we don't inject a second one.
 _STYLESHEET_LINK = re.compile(r"<link[^>]*screen\.css", re.IGNORECASE)
 
@@ -333,6 +338,26 @@ def _ensure_layout_essentials(source: str) -> str:
     if not _GHOST_FOOT.search(source):
         source = _inject_before(source, _BODY_CLOSE, "    {{ghost_foot}}\n")
     return source
+
+
+def nav_advisory(default_template: str | None) -> str | None:
+    """Advise (not force) ``{{navigation}}`` when a custom layout hardcodes its nav.
+
+    Ghost has an admin-managed menu system; a hardcoded ``<nav>`` silently ignores it,
+    so menus set in Ghost admin do nothing. That's a quiet quality problem (the theme
+    validates and previews fine). This returns a soft warning the caller can surface,
+    not an error -- fixed links are sometimes the right call.
+    """
+    if not default_template:
+        return None
+    if _HARDCODED_NAV.search(default_template) and not _USES_NAVIGATION.search(default_template):
+        return (
+            "default_template has a hardcoded <nav> and no {{navigation}}; use "
+            "{{navigation}} (or a partials/navigation.hbs loop) so the site owner "
+            "manages the menu in Ghost admin, unless you intend fixed links the post "
+            "author can't change."
+        )
+    return None
 
 
 def _ensure_previewable(name: str, source: str) -> None:
