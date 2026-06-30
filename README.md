@@ -1,52 +1,51 @@
 # Ghost Styling MCP
 
-An [MCP](https://modelcontextprotocol.io) server for **styling and managing a
-Ghost blog**.
+An [MCP](https://modelcontextprotocol.io) server that builds your own Ghost blog
+theme from your existing theme and real website data.
 
-Most Ghost integrations manage content. This one starts somewhere no other public
-Ghost MCP does — changing how the blog *looks* — and solves the problem that makes
-AI-driven styling hard: the model can't see the rendered page. The server gives it
-**structural sight** (the live markup and CSS) so it can write CSS that targets
-real selectors instead of guessing.
+Most Ghost integrations manage content; this one handles how your blog *looks*. It
+gives the model your real data to design against: your live page's rendered HTML and
+CSS, your current theme, and your site settings. You get back a complete, custom
+theme to preview locally and upload when you're ready.
 
 Styling and vision come first. The authenticated client underneath is generic, so
 the rest of the Ghost Admin API (posts, members, tags, and the other resources)
-will follow as thin tool wrappers, growing this into a full management server.
+follows as thin tool wrappers, growing this into a full management server.
 
 ## Status
 
 Working: auth, vision, theme generation/preview/upload, and site settings. Roadmap:
 
 - [x] Authenticated Admin API client (generic browse/read/add/edit/delete)
-- [x] **Vision** — `get_theme_structure` fetches the live page's markup + CSS
-- [x] **Themes** — generate, preview locally, upload, list, and download themes
-- [x] **Site settings** — read/update brand + SEO metadata (title, description, accent, meta/OG/Twitter)
-- [ ] **Management** — posts, members, newsletters, tags, … as CRUD tools (next)
+- [x] **Vision**: `get_theme_structure` fetches the live page's markup + CSS
+- [x] **Themes**: generate, preview locally, upload, list, and download themes
+- [x] **Site settings**: read/update brand + SEO metadata (title, description, accent, meta/OG/Twitter)
+- [ ] **Management**: posts, members, newsletters, tags, … as CRUD tools (next)
 
 ## Tools
 
 The server exposes these tools to the model:
 
 **Vision**
-- `get_theme_structure` — fetch a live page's HTML skeleton and linked CSS, so styling targets selectors that actually exist.
+- `get_theme_structure`: fetch a live page's HTML skeleton and linked CSS, so styling targets selectors that actually exist.
 
 **Themes**
-- `create_theme` — generate a complete, valid, previewable theme from a CSS design (and optional template overrides).
-- `preview_theme` — render a theme locally and serve it on localhost to review before publishing.
-- `upload_theme` — package and upload a theme; it installs **inactive**, so the live site is untouched.
-- `list_themes` — list installed themes and which one is active.
-- `download_theme` — download an installed theme's source as a zip.
+- `create_theme`: generate a complete, valid, previewable theme from a CSS design (and optional template overrides).
+- `preview_theme`: render a theme locally and serve it on localhost to review before publishing.
+- `upload_theme`: package and upload a theme; it installs **inactive**, so the live site is untouched.
+- `list_themes`: list installed themes and which one is active.
+- `download_theme`: download an installed theme's source as a zip.
 
 **Site settings**
-- `get_site_settings` — read brand and SEO settings.
-- `update_site_metadata` — site title/description plus SEO and social metadata (`meta_*`, Open Graph, Twitter cards).
-- `update_branding` — the brand accent colour.
+- `get_site_settings`: read brand and SEO settings.
+- `update_site_metadata`: site title/description plus SEO and social metadata (`meta_*`, Open Graph, Twitter cards).
+- `update_branding`: the brand accent colour.
 
-Activating a theme is intentionally **not** a tool — it changes the live site, so it stays a manual step.
+Activating a theme is intentionally **not** a tool: it changes the live site, so it stays a manual step.
 
 ## Requirements
 
-- An **MCP client** to run it in — e.g. [Claude Desktop](https://claude.ai/download),
+- An **MCP client** to run it in, e.g. [Claude Desktop](https://claude.ai/download),
   Cline, or Claude Code. This is an MCP *server*; it runs inside a client, not on its own.
 - Python 3.13+
 - [uv](https://docs.astral.sh/uv/)
@@ -71,8 +70,8 @@ The server reads its configuration from environment variables:
 
 Provide them **either** way:
 
-- **In your MCP client** — put them in the server's `env` block (see [Running](#running)). No `.env` file is needed; this is the usual setup for Claude Desktop.
-- **In a local `.env`** — handy for development and the connection check: `cp .env.example .env` and fill it in. (If both are set, the client's `env` values win.)
+- **In your MCP client**: put them in the server's `env` block (see [Running](#running)). No `.env` file is needed; this is the usual setup for Claude Desktop.
+- **In a local `.env`**: handy for development and the connection check: `cp .env.example .env` and fill it in. (If both are set, the client's `env` values win.)
 
 Confirm the credentials reach your site:
 
@@ -98,10 +97,10 @@ reads the config only at startup).
 | Windows | `%APPDATA%\Claude\claude_desktop_config.json` |
 | macOS | `~/Library/Application Support/Claude/claude_desktop_config.json` |
 
-Use the **full path to `uv`** for `command` — clients often don't have it on their
+Use the **full path to `uv`** for `command`; clients often don't have it on their
 PATH. Find it with `(Get-Command uv).Source` (Windows PowerShell) or `which uv`
 (macOS/Linux). `--directory` points uv at the project, so the project's `.env` is
-loaded automatically (or pass credentials with an `env` block instead — see below).
+loaded automatically (or pass credentials with an `env` block instead, see below).
 
 **Windows:**
 
@@ -129,7 +128,7 @@ loaded automatically (or pass credentials with an `env` block instead — see be
 }
 ```
 
-The same `command`/`args` work with any MCP client (Cline, Claude Code, …) — only the
+The same `command`/`args` work with any MCP client (Cline, Claude Code, …); only the
 config-file location differs. To pass credentials through the client instead of a
 `.env`, add an `env` block to the server entry:
 
@@ -143,8 +142,8 @@ config-file location differs. To pass credentials through the client instead of 
 
 ### Run without cloning
 
-To skip `git clone`, have `uvx` install and run the server straight from the repo —
-add this to the same config file (use the full path to `uvx` if your client doesn't
+To skip `git clone`, have `uvx` install and run the server straight from the repo.
+Add this to the same config file (use the full path to `uvx` if your client doesn't
 have it on PATH):
 
 ```json
@@ -189,8 +188,8 @@ The package is layered so each piece has one job:
 | Tools  | `ghost_mcp.tools`  | Thin MCP wrappers over the layers above.              |
 | Server | `ghost_mcp.server` | Assemble the layers into a runnable server.           |
 
-The Admin API is uniform — every resource shares the same browse/read/add/edit/
-delete shape — so `GhostAdminClient` implements those operations generically. A new
+The Admin API is uniform: every resource shares the same browse/read/add/edit/
+delete shape, so `GhostAdminClient` implements those operations generically. A new
 resource is a thin tool module, not a new subsystem.
 
 This server is intentionally **pure Python**. Ghost's own tooling is JavaScript, but
@@ -215,7 +214,7 @@ Conventions:
 - Type-hint everything.
 - Docstrings go *inside* functions (FastMCP reads them to describe tools to the
   model). Keep them concise; put longer context in the module docstring.
-- Write docstrings for people reading the source — clear, no implementation noise.
+- Write docstrings for people reading the source: clear, no implementation noise.
 
 Before opening a PR:
 
@@ -239,4 +238,4 @@ boundary, and how to report a vulnerability.
 
 ## License
 
-MIT — see [LICENSE](LICENSE).
+MIT. See [LICENSE](LICENSE).

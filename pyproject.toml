@@ -1,7 +1,7 @@
 [project]
 name = "ghost-mcp"
 version = "0.1.0"
-description = "An MCP server for styling and managing a Ghost blog — gives a model structural sight of the live theme plus tools to restyle and manage the site."
+description = "An MCP server for styling and managing a Ghost blog: gives a model structural sight of the live theme plus tools to restyle and manage the site."
 readme = "README.md"
 requires-python = ">=3.13"
 license = "MIT"

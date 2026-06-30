@@ -6,8 +6,8 @@
   the caller supplies the design (CSS, and optionally template bodies).
 * :func:`package_theme` zips a theme directory for upload.
 
-Generated themes deliberately stay within the subset the local previewer supports —
-in particular, no Handlebars block params (``as |x|``) — so a generated theme can
+Generated themes deliberately stay within the subset the local previewer supports,
+in particular no Handlebars block params (``as |x|``), so a generated theme can
 always be previewed before it is uploaded.
 """
 

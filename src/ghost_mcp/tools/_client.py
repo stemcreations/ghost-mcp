@@ -2,7 +2,7 @@
 
 Building a client and re-reading the environment on every tool call is wasteful:
 the HTTP connection pool can't be reused and ``.env`` is parsed each time. The
-client is safe to share for the life of the process — it signs a fresh token per
+client is safe to share for the life of the process: it signs a fresh token per
 request.
 """
 

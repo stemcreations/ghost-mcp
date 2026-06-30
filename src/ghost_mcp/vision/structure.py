@@ -2,7 +2,7 @@
 
 Unlike the rest of the package this module needs no authentication: it requests
 the public page exactly as a browser would, then the stylesheets that page links
-to. The result is trimmed for size — a full page plus theme CSS is large, and most
+to. The result is trimmed for size: a full page plus theme CSS is large, and most
 of it (editor-card styles, inline scripts, body text) adds nothing to a styling
 decision.
 

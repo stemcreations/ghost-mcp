@@ -2,8 +2,8 @@
 
 Posts store their body as Lexical. To work in plain HTML we use Ghost's
 ``source=html`` conversion when writing and ``formats=html`` when reading. Updates
-must include the post's current ``updated_at`` — Ghost uses it to detect conflicting
-edits — so :func:`update_post` reads the post first.
+must include the post's current ``updated_at`` (Ghost uses it to detect conflicting
+edits), so :func:`update_post` reads the post first.
 """
 
 from __future__ import annotations

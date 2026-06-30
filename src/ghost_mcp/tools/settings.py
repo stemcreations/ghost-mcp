@@ -1,7 +1,7 @@
 """Tools for reading and updating site settings: brand, SEO metadata, navigation.
 
 These operate on Ghost's site-wide settings, which are independent of the active
-theme — so they let the blog's identity, branding, and SEO/social metadata be kept
+theme, so they let the blog's identity, branding, and SEO/social metadata be kept
 cohesive with the rest of the site.
 """
 
@@ -87,7 +87,7 @@ def register(mcp: FastMCP) -> None:
         }
         changes = {key: value for key, value in provided.items() if value is not None}
         if not changes:
-            return {"updated": {}, "note": "No fields provided — nothing changed."}
+            return {"updated": {}, "note": "No fields provided. Nothing changed."}
         updated = settings_api.update_settings(admin_client(), changes)
         return {"updated": {key: updated.get(key) for key in changes}}
 
@@ -104,6 +104,6 @@ def register(mcp: FastMCP) -> None:
         if accent_color is not None:
             changes["accent_color"] = accent_color
         if not changes:
-            return {"updated": {}, "note": "No fields provided — nothing changed."}
+            return {"updated": {}, "note": "No fields provided. Nothing changed."}
         updated = settings_api.update_settings(admin_client(), changes)
         return {"updated": {key: updated.get(key) for key in changes}}

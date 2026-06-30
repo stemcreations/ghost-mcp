@@ -2,7 +2,7 @@
 
 The ``/settings/`` endpoint returns and accepts a list of ``{key, value}`` objects
 rather than the resource envelope the rest of the API uses, so it gets its own
-helpers. Reads are exposed as a flat ``{key: value}`` mapping; updates are partial —
+helpers. Reads are exposed as a flat ``{key: value}`` mapping; updates are partial:
 only the keys you pass are changed. Requires a staff token with the Owner or Admin
 role.
 """
@@ -24,8 +24,8 @@ def _is_secret(key: str) -> bool:
 def _flatten(body: dict[str, Any]) -> dict[str, Any]:
     """Turn the ``{settings: [{key, value}]}`` envelope into a ``{key: value}`` map.
 
-    Rows without a ``key`` (or that aren't objects) are skipped — so a single
-    malformed entry can't abort the whole read — and credential-bearing keys
+    Rows without a ``key`` (or that aren't objects) are skipped, so a single
+    malformed entry can't abort the whole read, and credential-bearing keys
     (Stripe/Mailgun secrets, password, hashes, …) are filtered out as defence in
     depth, so secrets never reach a caller even if the tool's allow-list is bypassed.
     """

@@ -2,8 +2,8 @@
 
 Ghost normally renders themes server-side with its own Handlebars helpers and live
 data, so a perfectly faithful render needs a running Ghost. This module produces an
-approximate *local* render — accurate for layout and styling, with sample content
-and stubbed helpers — so a theme can be checked in a browser before it is activated
+approximate *local* render (accurate for layout and styling, with sample content
+and stubbed helpers) so a theme can be checked in a browser before it is activated
 on the real site.
 
 It covers the home, post, and page templates, emulates Ghost's ``{{!< default}}``
@@ -28,7 +28,7 @@ try:  # lets helpers emit raw HTML (e.g. post content) without escaping
 except ImportError:  # pragma: no cover - depends on pybars internals
     strlist = None
 
-# Layout name is a bare word (e.g. ``default``) — no ``/`` or ``.`` so a malicious
+# Layout name is a bare word (e.g. ``default``): no ``/`` or ``.`` so a malicious
 # template can't escape the theme directory via ``{{!< ../../some/file }}``.
 _LAYOUT_DIRECTIVE = re.compile(r"\{\{!<\s*([\w-]+)\s*\}\}")
 _compiler = Compiler()

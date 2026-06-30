@@ -16,7 +16,7 @@ current for contributors.
 ## Commands
 
 uv manages everything (no global pip, no manual venv). If `uv` isn't found in a
-fresh shell, it's at `~/.local/bin/uv.exe` — open a new terminal or prepend it to
+fresh shell, it's at `~/.local/bin/uv.exe`; open a new terminal or prepend it to
 PATH.
 
 ```bash
@@ -34,12 +34,12 @@ uv run pytest tests/test_auth.py::test_audience_is_admin  # run a single test
 
 Layered package under `src/ghost_mcp/`, each layer with one responsibility:
 
-- `config.py` — load/validate env (`GHOST_ADMIN_URL`, `GHOST_STAFF_ACCESS_TOKEN`, optional `GHOST_API_VERSION`).
-- `errors.py` — the `GhostError` hierarchy (`ConfigError`, `GhostAPIError`).
-- `admin/` — authenticated Admin API: `auth.py` mints JWTs, `client.py` is the HTTP client.
-- `vision/` — `structure.py` fetches the public page + CSS (no auth).
-- `tools/` — thin MCP wrappers; one module per domain, each exposing `register(mcp)`.
-- `server.py` — builds the FastMCP server and wires tools; `main()` is the entry point.
+- `config.py`: load/validate env (`GHOST_ADMIN_URL`, `GHOST_STAFF_ACCESS_TOKEN`, optional `GHOST_API_VERSION`).
+- `errors.py`: the `GhostError` hierarchy (`ConfigError`, `GhostAPIError`).
+- `admin/`: authenticated Admin API: `auth.py` mints JWTs, `client.py` is the HTTP client.
+- `vision/`: `structure.py` fetches the public page + CSS (no auth).
+- `tools/`: thin MCP wrappers; one module per domain, each exposing `register(mcp)`.
+- `server.py`: builds the FastMCP server and wires tools; `main()` is the entry point.
 
 **The core convention:** business logic lives in a service module (`admin/`,
 `vision/`) as a plain, testable function; the `tools/` wrapper only adapts it to MCP.
@@ -62,17 +62,17 @@ and call it from `register_all` in `tools/__init__.py`.
 ## Conventions
 
 - Type-hint everything; target Python 3.13.
-- **Docstrings go inside functions** (PEP 257) — FastMCP reads a tool's `__doc__` to
+- **Docstrings go inside functions** (PEP 257): FastMCP reads a tool's `__doc__` to
   describe it to the model, so a comment above `def` would be invisible. Keep
   function docstrings concise; put longer context in the module docstring. Write them
   for humans reading the source.
 - Raise `GhostError` subclasses, never bare exceptions, for expected failure modes.
-- Pure Python only — see the README for why no Node/TypeScript layer is needed.
+- Pure Python only; see the README for why no Node/TypeScript layer is needed.
 
 ## Reference material
 
 `ghost-llms-full.txt` (~728 KB, gitignored) is the complete Ghost Admin API
-documentation — endpoints, fields, filtering, errors, auth. Treat it as the
+documentation: endpoints, fields, filtering, errors, auth. Treat it as the
 authoritative spec when adding tools; consult it instead of guessing endpoint shapes.
 `handoffdoc.md` (gitignored) holds the project's design rationale and scope decisions.
 

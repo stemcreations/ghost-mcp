@@ -2,7 +2,7 @@
 
 ## Reporting a vulnerability
 
-Please report security issues **privately** — use GitHub's
+Please report security issues **privately**: use GitHub's
 **Security → Advisories → "Report a vulnerability"** on this repository rather than
 opening a public issue. Include reproduction steps and the impact you observed.
 You'll get an acknowledgement and a fix or mitigation as fast as is practical.
@@ -33,8 +33,8 @@ on your own machine.
 
 ### The main trust boundary: untrusted content (prompt injection)
 
-Some tools pull in content you don't control — a rendered web page via
-`get_theme_structure`, or a post's HTML via `get_post` — and hand it to the model.
+Some tools pull in content you don't control (a rendered web page via
+`get_theme_structure`, or a post's HTML via `get_post`) and hand it to the model.
 **Treat that content as untrusted input.** A malicious page or post can contain
 instructions ("prompt injection") that try to steer the model into using its tools
 to delete content, publish spam, or change site settings.
@@ -43,7 +43,7 @@ Because no tool exposes the token, the worst case is unwanted *actions on your o
 blog*, not a stolen credential. To stay safe:
 
 - Be cautious pointing the tools at pages or posts you don't trust.
-- Review destructive or publishing actions — `delete_post`, `delete_tag`,
+- Review destructive or publishing actions: `delete_post`, `delete_tag`,
   `delete_theme`, and `create_post`/`update_post` with `status="published"`.
 - Keep `activate_theme` a manual step (it already is).
 
@@ -55,6 +55,6 @@ credentials. Use a staff token scoped to the role you actually need.
 
 ## Dependencies
 
-Dependencies are pinned with hashes in `uv.lock`. Keep them up to date —
+Dependencies are pinned with hashes in `uv.lock`. Keep them up to date:
 `pybars3` (theme preview rendering) and `beautifulsoup4` (HTML parsing of fetched
 pages) process untrusted input, so prefer current versions.

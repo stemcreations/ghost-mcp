@@ -1,6 +1,6 @@
 """Tools for managing blog posts: list, read, create, update, delete, and preview.
 
-Posts carry a ``preview_url`` — Ghost's native draft preview (``{site}/p/{uuid}/``),
+Posts carry a ``preview_url``: Ghost's native draft preview (``{site}/p/{uuid}/``),
 which renders the post in the active theme exactly as it will look when published.
 It works for drafts and is shareable, so it's the way to review a post before it
 goes live.
@@ -123,7 +123,7 @@ def register(mcp: FastMCP) -> None:
     ) -> dict:
         """Create a blog post from HTML content.
 
-        Defaults to a **draft** — pass ``status="published"`` to publish immediately.
+        Defaults to a **draft**; pass ``status="published"`` to publish immediately.
         ``tags`` are given as names and created if they don't already exist.
         ``meta_title``/``meta_description`` set the post's search-snippet metadata.
 

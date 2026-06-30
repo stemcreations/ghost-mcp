@@ -50,8 +50,8 @@ def register(mcp: FastMCP) -> None:
     ) -> dict:
         """Generate a complete, valid, previewable Ghost theme on disk.
 
-        Writes a ready-to-use theme — layout, home/post/page templates, page
-        handling, the Koenig CSS classes Ghost requires, and ``package.json`` — to a
+        Writes a ready-to-use theme (layout, home/post/page templates, page
+        handling, the Koenig CSS classes Ghost requires, and ``package.json``) to a
         local directory. Supply ``styles`` (CSS) to design the look; the site's brand
         accent colour is available in CSS as ``var(--ghost-accent-color)``, so the
         theme respects the user's existing branding.
@@ -119,7 +119,7 @@ def register(mcp: FastMCP) -> None:
     def upload_theme(theme_path: str) -> dict:
         """Package a theme directory and upload it to Ghost WITHOUT activating it.
 
-        The live site keeps its current theme — the uploaded theme is installed but
+        The live site keeps its current theme; the uploaded theme is installed but
         inactive, so it can be reviewed and activated manually. Ghost validates the
         theme on upload; any errors or warnings are returned.
 
