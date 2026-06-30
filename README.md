@@ -15,16 +15,16 @@ follows as thin tool wrappers, growing this into a full management server.
 
 ## Status
 
-Working: auth, vision, theme generation/preview/upload, site settings, and posts +
-tags management. Roadmap:
+Working: auth, vision, theme generation/preview/upload, site settings, and content +
+audience management (posts, tags, members, newsletters). Roadmap:
 
 - [x] Authenticated Admin API client (generic browse/read/add/edit/delete)
 - [x] **Vision**: `extract_brand` distils a live site's brand; `get_theme_structure` fetches its markup + CSS
 - [x] **Themes**: generate, preview locally, upload, list, and download themes
 - [x] **Site settings**: read/update brand + SEO metadata (title, description, accent, meta/OG/Twitter)
-- [x] **Management**: posts and tags as CRUD tools
+- [x] **Management**: posts, tags, members, and newsletters as CRUD tools
 - [x] **Guided flow**: a `theme-a-site` prompt and a server instructions block encode the brand-first workflow
-- [ ] **Management**: members, newsletters, … as CRUD tools (next)
+- [ ] **Management**: tiers, offers, and users as they're needed (next)
 
 ## Tools
 
@@ -54,7 +54,15 @@ The server exposes these tools to the model:
 - `list_tags` / `get_tag`: browse tags (with post counts), or read one.
 - `create_tag` / `update_tag` / `delete_tag`: manage tags.
 
-Activating a theme is intentionally **not** a tool: it changes the live site, so it stays a manual step.
+**Members**
+- `list_members` / `get_member`: browse members (filter by `status:paid`, `label:vip`, …) or read one, with labels and subscribed newsletters.
+- `create_member` / `update_member`: add a member from an email; set name, note, labels, and newsletter subscriptions.
+
+**Newsletters**
+- `list_newsletters` / `get_newsletter`: browse newsletters or read one.
+- `create_newsletter` / `update_newsletter`: create and configure newsletters; retire one with `status: archived` (the API has no delete).
+
+Activating a theme is intentionally **not** a tool: it changes the live site, so it stays a manual step. The Admin API has no delete for members or newsletters, so neither does this server.
 
 ### Guided workflow
 
