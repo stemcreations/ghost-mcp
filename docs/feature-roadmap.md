@@ -144,6 +144,12 @@ Browse/Read/Edit/Add for tiers and offers (no delete), and adds Delete for label
 - **Guarded theme activation.** Activation is intentionally manual (it changes the
   live site). If exposed, it must be a distinct, clearly-labelled tool that the model
   only calls on explicit user instruction (mirror the post-email caution).
+- **Previewer `foreach` `@`-data fidelity.** Ghost's `{{#foreach}}` exposes
+  `@first`/`@last`/`@index`/`@number` (used for loop-position styling), but our stub in
+  `theme/preview.py` does not, so those render blank in preview even though they work
+  live (today the workaround is `{{#each}}`, whose `@`-data pybars3 does provide).
+  Enhance the `foreach` helper to pass `@`-data into `options["fn"]` so the preview
+  matches Ghost. Verify against pybars3's `options["fn"]` data-passing support first.
 - **Preview screenshots (architectural decision).** Render the local preview to a PNG
   so the model can *see* layout/spacing/contrast instead of building blind. High
   impact, but needs a headless browser (Playwright/Chromium), which departs from this
