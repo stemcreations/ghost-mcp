@@ -33,6 +33,14 @@ _BLOCK_PARAMS = re.compile(r"\bas\s+\|")
 #: using it fails to *compile* for preview (an unfixable pybars3 limitation).
 _FROM_HASH_ARG = re.compile(r"\{\{[^}]*\bfrom\s*=")
 
+#: Detects ``{{else if}}``. pybars3 compiles it but renders the WRONG branch (a silent
+#: bug), so it is rejected in favour of nested ``{{#if}}…{{else}}{{#if}}…``.
+_ELSE_IF = re.compile(r"\{\{\s*else\s+if\b")
+
+#: Detects hash parameters passed to a partial (``{{> name key=value}}``), which
+#: pybars3 cannot compile. Passing a context object (``{{> name obj}}``) is fine.
+_PARTIAL_HASH_PARAM = re.compile(r"\{\{>\s*[^}]*=")
+
 #: Detects a Handlebars layout directive, e.g. ``{{!< default}}``.
 _LAYOUT_DIRECTIVE = re.compile(r"\{\{!<\s*[\w-]+\s*\}\}")
 
@@ -371,6 +379,20 @@ def _ensure_previewable(name: str, source: str) -> None:
             f"template '{name}' uses a 'from=' loop argument; the local previewer "
             "(pybars3) cannot compile it because 'from' is a Python keyword. Use "
             "'limit='/'to=' to slice the loop, or drop it."
+        )
+    if _ELSE_IF.search(source):
+        raise ThemeError(
+            f"template '{name}' uses "
+            "{{else if}}, which the local previewer (pybars3) renders incorrectly "
+            "(it picks the wrong branch); rewrite as nested "
+            "{{#if}}...{{else}}{{#if}}...{{/if}}{{/if}}."
+        )
+    if _PARTIAL_HASH_PARAM.search(source):
+        raise ThemeError(
+            f"template '{name}' passes hash parameters to a partial "
+            "({{> name key=value}}), which the local previewer cannot compile. Inline "
+            "the values into the partial, or pass a context object ({{> name obj}}); "
+            "partial parameters work on the live site."
         )
 
 

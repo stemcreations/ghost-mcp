@@ -42,9 +42,10 @@ Gotchas that will bite you otherwise:
   builder injects the <link> for default_template overrides that omit it.)
 - Content templates must start with {{!< default}} to inherit the layout; the builder
   injects it if missing. A default_template must contain {{{body}}} or it's rejected.
-- The local previewer renders only a subset of Ghost's Handlebars. Block params
-  (as |x|) and from= are rejected outright -- to feature the first post, use a CSS
-  :first-child rule, not {{#foreach posts from=}}.
+- The local previewer renders only a subset of Ghost's Handlebars. Rejected at build
+  with a clear message: block params (as |x|), from=, {{else if}} (use nested
+  {{#if}}...{{else}}{{#if}}...), and partials with key=value params (inline the values
+  or pass a context object). To feature the first post use a CSS :first-child rule.
 - Preview servers are ephemeral: each preview_theme call replaces the previous one, so
   older preview URLs stop working. Always use the most recent URL.
 - get_theme_structure only fetches PUBLIC http(s) URLs; it refuses localhost/private

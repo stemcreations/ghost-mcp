@@ -79,6 +79,27 @@ def test_from_loop_arg_is_rejected(tmp_path) -> None:
         build_theme(spec, tmp_path)
 
 
+def test_else_if_is_rejected(tmp_path) -> None:
+    # pybars3 renders {{else if}} as the wrong branch (silent bug), so it's rejected.
+    spec = ThemeSpec(name="t", templates={"index": "{{#if a}}A{{else if b}}B{{/if}}"})
+    with pytest.raises(ThemeError):
+        build_theme(spec, tmp_path)
+
+
+def test_partial_hash_params_are_rejected(tmp_path) -> None:
+    # pybars3 can't compile a partial with key=value params.
+    spec = ThemeSpec(name="t", templates={"index": '{{> "header" style="big"}}'})
+    with pytest.raises(ThemeError):
+        build_theme(spec, tmp_path)
+
+
+def test_partial_with_context_object_is_allowed(tmp_path) -> None:
+    # Passing a context object (no '=') is fine and must not be rejected.
+    spec = ThemeSpec(name="t", templates={"index": '{{> "header" post}}'})
+    theme = build_theme(spec, tmp_path)
+    assert (theme / "index.hbs").exists()
+
+
 def test_override_without_layout_directive_still_inherits_layout(tmp_path) -> None:
     # An override that omits {{!< default}} must still be wrapped in the layout,
     # otherwise the preview is a bare fragment with no <head> and the CSS never loads.

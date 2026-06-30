@@ -98,13 +98,20 @@ The previewer (`theme/preview.py`) supports only:
 | Construct | Notes |
 | --- | --- |
 | `{{!< default}}` | Layout inheritance (one bare layout name, no paths). |
-| `{{#if x}}` / `{{#unless x}}` | Truthiness blocks. |
-| `{{#foreach items}}…{{else}}…{{/foreach}}` | Loop over a list already in context (`posts`). |
+| `{{#if x}}` / `{{#unless x}}` | Truthiness blocks, with `{{else}}`. **No `{{else if}}`** (see below). |
+| `{{#foreach items}}…{{else}}…{{/foreach}}` | Ghost's loop over a list already in context (`posts`). Honours `limit=`/`to=`. Does **not** expose `@first`/`@last`/`@index` in preview (those are live-only); use `{{#each}}` if you need loop position to preview. |
+| `{{#each items}}…{{/each}}` | Core loop; exposes `@index`, `@first`, `@last`, `@key`. Works in preview *and* live. |
+| `{{#with obj}}…{{/with}}` | Enter an object's context. |
 | `{{#post}}` / `{{#page}}` | Enter the post/page object's context. |
-| `{{> "partials/name"}}` | Partials loaded from `partials/`. |
+| Paths | `{{a.b.c}}` nested, `{{../x}}` parent, `{{this}}` / `{{.}}` current. |
+| `{{> "partials/name"}}` and `{{> "name" obj}}` | Partials from `partials/`, optionally with a **context object**. Passing **hash params** (`key=value`) is rejected (see below). |
 | Bare fields | `{{title}}`, `{{url}}`, `{{excerpt}}`, `{{feature_image}}`, `{{content}}`. |
+| `{{{x}}}` / `{{&x}}` | Unescaped HTML output. |
 | `{{asset "path"}}` | Returns `/assets/path`. |
 | `{{img_url x size="m"}}` | Valid on live Ghost; previewer returns the URL unchanged (size/format ignored). |
+| `{{lookup obj key}}` | Dynamic property/index lookup. |
+| Subexpressions | `{{outer (inner arg)}}`. |
+| Comments / whitespace | `{{! … }}`, `{{!-- … --}}`, and `{{~ … ~}}` whitespace control. |
 | `@site`, `@custom`, `@page` | Data globals from `default_sample()`. |
 
 The list above is what the **preview** can render. It is **not** the list of what a
@@ -114,13 +121,22 @@ invisible in preview." Do not conflate them — treating a live-only helper as
 forbidden is how themes end up hardcoding things Ghost is meant to manage (see
 [Navigation](#navigation)).
 
-**Rejected at build (cannot use — `_ensure_previewable` raises):**
+**Rejected at build (cannot use — `_ensure_previewable` raises with a clear message):**
 
-- **Block params:** `{{#get … as |recent|}}`, `{{#foreach posts as |p|}}`.
+- **Block params:** `{{#get … as |recent|}}`, `{{#each x as |v|}}`. pybars3 can't parse
+  them.
 - **`from=` loop argument:** `{{#foreach posts from="5"}}`. pybars3 turns hash args
   into Python keyword arguments and `from` is a Python keyword, so the generated code
   won't compile. Slice with `limit=` / `to=` instead (those work in preview), or
   feature the first item with a CSS `:first-child` rule.
+- **`{{else if}}`:** pybars3 compiles it but renders the **wrong branch** (a silent
+  bug), so it's rejected. Rewrite as nested
+  `{{#if a}}…{{else}}{{#if b}}…{{/if}}{{/if}}`, which previews correctly and is also
+  valid live.
+- **Partial hash params:** `{{> "header" style="big"}}`. pybars3 can't compile a
+  partial with `key=value` args (Source uses these everywhere, so don't copy its
+  partials verbatim). Inline the values, or pass a context object (`{{> "header" obj}}`,
+  which *is* allowed). Partial params work on the live site.
 
 **Live-only helpers (use them for production themes — they render blank in local
 preview, then work once uploaded):** the previewer installs a `helperMissing`
@@ -136,7 +152,9 @@ preview can't show it — style it, then confirm it on the live site.
   gated posts), `{{#get}}` data queries, `{{#match}}` / `{{#is}}` / `{{#has}}` flow
   helpers, `{{social_url}}`, `{{t}}` (i18n), `{{@config.*}}`, `{{recommendations}}`,
   `{{comments}}`, `{{excerpt words=…}}`.
-- Loop `@`-data: `@number`, `@index`, `@first`, `@last`.
+- `{{#foreach}}` loop `@`-data (`@number`, `@first`, `@last`, `@even`, `@odd`):
+  live-only with Ghost's `foreach`. If you need loop position to show in preview too,
+  use `{{#each}}` (its `@index`/`@first`/`@last` render in both).
 
 (Bare `{{excerpt}}` / `{{title}}` field lookups are unaffected; only the *helper*
 forms degrade.) Source uses the live-only helpers throughout, which is why Source
