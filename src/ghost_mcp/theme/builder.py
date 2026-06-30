@@ -81,14 +81,18 @@ _DEFAULT_HBS = """<!DOCTYPE html>
 </head>
 <body class="{{body_class}}">
     <header class="site-header">
-        <a class="site-title" href="{{@site.url}}">{{@site.title}}</a>
-        <p class="site-description">{{@site.description}}</p>
+        <div class="gh-inner">
+            <a class="site-title" href="{{@site.url}}">{{@site.title}}</a>
+            <p class="site-description">{{@site.description}}</p>
+        </div>
     </header>
     <main class="site-main">
         {{{body}}}
     </main>
     <footer class="site-footer">
-        <p>&copy; {{@site.title}}</p>
+        <div class="gh-inner">
+            <p>&copy; {{@site.title}}</p>
+        </div>
     </footer>
     {{ghost_foot}}
 </body>
@@ -96,6 +100,7 @@ _DEFAULT_HBS = """<!DOCTYPE html>
 """
 
 _INDEX_HBS = """{{!< default}}
+<div class="gh-inner">
 <section class="post-feed">
 {{#foreach posts}}
     <article class="post-card">
@@ -109,15 +114,18 @@ _INDEX_HBS = """{{!< default}}
     </article>
 {{/foreach}}
 </section>
+</div>
 """
 
 _POST_HBS = """{{!< default}}
 {{#post}}
 <article class="post">
-    <h1 class="post-title">{{title}}</h1>
-    {{#if feature_image}}
-    <img class="post-image" src="{{feature_image}}" alt="{{title}}">
-    {{/if}}
+    <header class="post-header gh-inner">
+        <h1 class="post-title">{{title}}</h1>
+        {{#if feature_image}}
+        <img class="post-image" src="{{feature_image}}" alt="{{title}}">
+        {{/if}}
+    </header>
     <section class="post-content">
         {{content}}
     </section>
@@ -129,7 +137,7 @@ _PAGE_HBS = """{{!< default}}
 {{#post}}
 <article class="page">
     {{#if @page.show_title_and_feature_image}}
-    <header class="page-header">
+    <header class="page-header gh-inner">
         <h1 class="page-title">{{title}}</h1>
         {{#if feature_image}}
         <img class="page-image" src="{{feature_image}}" alt="{{title}}">
@@ -147,7 +155,10 @@ _PAGE_HBS = """{{!< default}}
 #: ``:root``, the brand accent Ghost injects as ``--ghost-accent-color``, Ghost's
 #: font-picker variables (``--gh-font-heading``/``--gh-font-body``), and the
 #: grid-based content "canvas" that lets Koenig wide/full cards break out of the
-#: reading column. See ``docs/theme-conventions.md``.
+#: reading column. Structural chrome classes (``.site-header``/``.site-footer``/
+#: ``.post-feed``/``.post``/``.page``) stay full-width; a ``.gh-inner`` wrapper does
+#: the reading-column capping, so a custom layout reusing those classes is never
+#: silently width-limited by this base. See ``docs/theme-conventions.md``.
 _BASE_CSS = """:root {
     /* Brand accent: Ghost injects --ghost-accent-color from the site's setting. */
     --accent: var(--ghost-accent-color, #15171a);
@@ -187,16 +198,30 @@ a {
     color: var(--accent);
 }
 
-/* Site chrome is centred on the reading column. */
+/* Site chrome spans the full viewport width; a `.gh-inner` wrapper inside centres
+   its contents on the reading column. This outer/inner split (the pattern Ghost's
+   own themes use) is deliberate: because the base stylesheet is prepended and a
+   custom layout naturally reuses these same class names, capping `.site-header`
+   directly would silently squeeze any full-width header a custom theme builds (and
+   a `max-width` on a child can't escape a capped parent). So the structural classes
+   stay full-width; only `.gh-inner` caps width, and only where a template adds one. */
 .site-header,
 .site-footer {
-    max-width: var(--content-width);
-    margin: 0 auto;
-    padding: 1.5rem var(--gap);
+    padding: 1.5rem 0;
 }
 
 .site-main {
     padding: 1.5rem 0;
+}
+
+/* The reading-column wrapper. A full-width element places a `.gh-inner` inside to
+   centre and cap its content; a custom layout uses its own wrapper (or none). */
+.gh-inner {
+    max-width: var(--content-width);
+    margin-left: auto;
+    margin-right: auto;
+    padding-left: var(--gap);
+    padding-right: var(--gap);
 }
 
 .site-title {
@@ -212,11 +237,12 @@ a {
     color: var(--color-secondary-text);
 }
 
-/* Post feed (home, tag, author) — a centred reading column. */
+/* Post feed (home, tag, author). Its width comes from the wrapping `.gh-inner`
+   (default templates) or a custom layout's own container -- not a cap here -- so a
+   wide or multi-column feed that reuses `.post-feed` isn't squeezed to the reading
+   column. */
 .post-feed {
-    max-width: var(--content-width);
-    margin: 0 auto;
-    padding: 0 var(--gap);
+    margin: 0;
 }
 
 .post-card {
@@ -240,17 +266,11 @@ a {
     border-radius: 6px;
 }
 
-/* Single post / page. Header elements sit on the reading column; the content body
-   is a grid "canvas" so Koenig wide/full cards can break outward. */
-.post > *,
-.page > * {
-    max-width: var(--content-width);
-    margin-left: auto;
-    margin-right: auto;
-    padding-left: var(--gap);
-    padding-right: var(--gap);
-}
-
+/* Single post / page. The header (title + feature image) sits on the reading column
+   via a `.gh-inner` wrapper in the template; the content body below is a grid
+   "canvas" (see `.post-content`) so Koenig wide/full cards can break outward. The
+   base intentionally does NOT cap `.post`/`.page` children directly -- that would
+   width-limit any custom post layout that reuses those classes. */
 .post-title,
 .page-title {
     font-family: var(--gh-font-heading, var(--font-sans));

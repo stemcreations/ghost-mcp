@@ -67,6 +67,13 @@ def register(mcp: FastMCP) -> None:
         accent colour is available in CSS as ``var(--ghost-accent-color)``, so the
         theme respects the user's existing branding.
 
+        Width convention: the base stylesheet keeps the structural chrome classes
+        (``.site-header``/``.site-footer``/``.post-feed``/``.post``/``.page``) at full
+        width and centres their contents with an inner ``.gh-inner`` wrapper. So in a
+        custom layout, cap a region by wrapping its content in your own inner element
+        (or reuse ``.gh-inner``) and set ``max-width`` there -- setting it on a child
+        of an un-capped region works, but a child can't widen past a capped parent.
+
         Optionally override the home/post/page templates, and the ``default.hbs``
         layout itself, with your own Handlebars. Stay within the previewable helper
         subset: ``{{#if}}``/``{{#unless}}``, ``{{#foreach}}`` (with ``limit=``/``to=``,

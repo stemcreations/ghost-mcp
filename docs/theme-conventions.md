@@ -199,6 +199,20 @@ the Design panel "just works." Custom web fonts are added with `@font-face` +
 `<link rel="preload" as="font" crossorigin>` and `font-display: optional` to avoid
 layout shift; load only the families actually used.
 
+**Full-width chrome, capped via `.gh-inner` (the outer/inner split).** The base
+stylesheet keeps the *structural* chrome classes — `.site-header`, `.site-footer`,
+`.post-feed`, and the `.post`/`.page` wrappers — at **full viewport width**, and
+centres their *contents* with an inner `.gh-inner` wrapper
+(`max-width: var(--content-width)`). This matters most when you write a **custom
+layout**: the base CSS is prepended and a custom layout naturally reuses these same
+class names, so a base that capped `.site-header` *directly* would silently squeeze
+any full-width header you build — and a `max-width` on a child can't escape a capped
+parent (a header inner pinned to 1140px still collapses inside a 720px `.site-header`).
+The rule of thumb: **structural classes are full-width; cap a region by wrapping its
+content in your own inner element (or reuse `.gh-inner`) and set the width there.**
+Don't expect the base to cap a structural class for you — and it won't fight you when
+you set your own width.
+
 **Content-width "canvas" (the load-bearing layout convention).** Ghost themes use a
 CSS grid with *named columns* so editor cards can break out of the reading column:
 the article body is a grid whose centre `main` column is the reading width, with
