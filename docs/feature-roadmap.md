@@ -55,6 +55,11 @@ an endpoint supports. Do not expose a verb the table omits.
 
 # Tier 1 — completes the content workflow
 
+✅ **Implemented 2026-06-30.** Pages (`admin/pages.py` + `tools/pages.py`), image upload
+(`admin/images.py` + `tools/images.py`), and `publish_post` (post-as-newsletter-email,
+extending `admin/posts.py` + `tools/posts.py`) all shipped with unit tests. The specs
+below are kept for reference.
+
 ## 1. Pages (`tools/pages.py`)
 
 Pages are posts that live outside the feed (about, contact, …). `/pages/` supports
@@ -137,6 +142,10 @@ emailed **iff** an active newsletter is named when it is published or scheduled.
 ---
 
 # Tier 2 — membership business
+
+✅ **Implemented 2026-06-30.** Tiers, offers, labels, and users (read-only) shipped as
+`tools/tiers.py`, `tools/offers.py`, `tools/labels.py`, and `tools/users.py`, each with
+unit tests. The specs below are kept for reference.
 
 Simple envelope resources; build like `tools/tags.py`. The capability table allows
 Browse/Read/Edit/Add for tiers and offers (no delete), and adds Delete for labels.

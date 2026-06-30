@@ -68,6 +68,38 @@ def test_update_post_reads_updated_at_then_puts() -> None:
     assert calls == ["GET", "PUT"]
 
 
+def test_update_post_threads_newsletter_params_into_query() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.method == "GET":
+            return httpx.Response(200, json={"posts": [{"id": "1", "updated_at": "T"}]})
+        # Publishing as email: newsletter + segment ride as query params, not body fields.
+        assert request.url.params.get("newsletter") == "weekly"
+        assert request.url.params.get("email_segment") == "status:-free"
+        assert "source" not in request.url.params  # no html change, so no source flag
+        return httpx.Response(200, json={"posts": [{"id": "1", "status": "published"}]})
+
+    post = posts_api.update_post(
+        _client(handler),
+        "1",
+        {"status": "published"},
+        params={"newsletter": "weekly", "email_segment": "status:-free"},
+    )
+    assert post["status"] == "published"
+
+
+def test_update_post_merges_source_flag_with_extra_params() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.method == "GET":
+            return httpx.Response(200, json={"posts": [{"id": "1", "updated_at": "T"}]})
+        assert request.url.params.get("source") == "html"
+        assert request.url.params.get("newsletter") == "weekly"
+        return httpx.Response(200, json={"posts": [{"id": "1"}]})
+
+    posts_api.update_post(
+        _client(handler), "1", {}, html="<p>x</p>", params={"newsletter": "weekly"}
+    )
+
+
 def test_summary_includes_native_preview_url() -> None:
     summary = _summary({"id": "1", "uuid": "abc", "title": "T"}, "https://blog.example.com")
     assert summary["preview_url"] == "https://blog.example.com/p/abc/"

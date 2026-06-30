@@ -161,6 +161,43 @@ def register(mcp: FastMCP) -> None:
         return _summary(updated, config().site_url)
 
     @mcp.tool
+    def publish_post(
+        post_id: str,
+        newsletter_slug: str,
+        email_segment: str = "all",
+        scheduled_at: str | None = None,
+    ) -> dict:
+        """Publish a post AND email it to a newsletter's subscribers. SENDS REAL EMAIL.
+
+        This is outward-facing and irreversible: it emails the post to members the
+        moment it publishes (or at ``scheduled_at``). Only call it on explicit user
+        instruction to send. To publish WITHOUT emailing, use
+        ``update_post(status="published")`` instead.
+
+        Args:
+            post_id: The post to publish and send.
+            newsletter_slug: The newsletter to send through (from ``list_newsletters``).
+                An archived or unknown slug means no email is sent.
+            email_segment: Which members receive it, as an NQL filter: ``all`` (default),
+                ``status:free``, or ``status:-free`` (paid).
+            scheduled_at: Optional ISO 8601 time to schedule the send; if given, the post
+                is scheduled and Ghost emails it automatically then. Omit to send now.
+
+        Returns:
+            The updated post summary.
+        """
+        fields: dict = {"status": "scheduled" if scheduled_at else "published"}
+        if scheduled_at:
+            fields["published_at"] = scheduled_at
+        updated = posts_api.update_post(
+            admin_client(),
+            post_id,
+            fields,
+            params={"newsletter": newsletter_slug, "email_segment": email_segment},
+        )
+        return _summary(updated, config().site_url)
+
+    @mcp.tool
     def delete_post(post_id: str) -> dict:
         """Delete a post by id. This cannot be undone."""
         posts_api.delete_post(admin_client(), post_id)

@@ -41,6 +41,10 @@ The server exposes these tools to the model:
 - `list_themes`: list installed themes and which one is active.
 - `download_theme`: download an installed theme's source as a zip.
 
+**Images**
+- `upload_image`: upload a local image file; returns a hosted URL to use for a post's `feature_image`, the site logo/icon, or a newsletter header.
+- `upload_image_from_url`: fetch a public image (under the same SSRF guard as vision) and re-host it on the blog.
+
 **Site settings**
 - `get_site_settings`: read brand and SEO settings.
 - `update_site_metadata`: site title/description plus SEO and social metadata (`meta_*`, Open Graph, Twitter cards).
@@ -49,6 +53,11 @@ The server exposes these tools to the model:
 **Posts**
 - `list_posts` / `get_post`: browse posts, or read one (with rendered HTML and a draft `preview_url`).
 - `create_post` / `update_post` / `delete_post`: write posts from HTML; drafts by default.
+- `publish_post`: publish a post **and email it** to a newsletter's members (outward-facing; a deliberate, explicit send, not a side effect of an edit).
+
+**Pages**
+- `list_pages` / `get_page`: browse standalone pages (about, contact, …), or read one (with rendered HTML and a `preview_url`).
+- `create_page` / `update_page` / `delete_page`: write pages from HTML; drafts by default. Pages share post fields but have no tags or feed placement.
 
 **Tags**
 - `list_tags` / `get_tag`: browse tags (with post counts), or read one.
@@ -62,7 +71,22 @@ The server exposes these tools to the model:
 - `list_newsletters` / `get_newsletter`: browse newsletters or read one.
 - `create_newsletter` / `update_newsletter`: create and configure newsletters; retire one with `status: archived` (the API has no delete).
 
-Activating a theme is intentionally **not** a tool: it changes the live site, so it stays a manual step. The Admin API has no delete for members or newsletters, so neither does this server.
+**Tiers**
+- `list_tiers` / `get_tier`: browse paid plans (with prices and benefits) or read one.
+- `create_tier` / `update_tier`: create and configure tiers; no delete (retire with `active: false`).
+
+**Offers**
+- `list_offers` / `get_offer`: browse discount offers (each with its linked tier) or read one.
+- `create_offer` / `update_offer`: create offers against a tier; no delete (Ghost only allows editing name/code/display fields after creation).
+
+**Labels**
+- `list_labels` / `get_label`: browse member labels or read one.
+- `create_label` / `update_label` / `delete_label`: manage labels for member segmentation.
+
+**Users**
+- `list_users` / `get_user`: browse authors/staff or read one. **Read-only** — the Admin API forbids integrations from writing users.
+
+Activating a theme is intentionally **not** a tool: it changes the live site, so it stays a manual step. The Admin API has no delete for members, newsletters, tiers, or offers, so neither does this server; users are read-only.
 
 ### Guided workflow
 

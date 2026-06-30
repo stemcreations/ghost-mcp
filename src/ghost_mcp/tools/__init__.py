@@ -7,7 +7,22 @@ function and call it from :func:`register_all`.
 
 from fastmcp import FastMCP
 
-from ghost_mcp.tools import members, newsletters, posts, prompts, settings, tags, theme, vision
+from ghost_mcp.tools import (
+    images,
+    labels,
+    members,
+    newsletters,
+    offers,
+    pages,
+    posts,
+    prompts,
+    settings,
+    tags,
+    theme,
+    tiers,
+    users,
+    vision,
+)
 
 
 def register_all(mcp: FastMCP) -> None:
@@ -16,7 +31,13 @@ def register_all(mcp: FastMCP) -> None:
     theme.register(mcp)
     settings.register(mcp)
     posts.register(mcp)
+    pages.register(mcp)
+    images.register(mcp)
     tags.register(mcp)
     members.register(mcp)
     newsletters.register(mcp)
+    tiers.register(mcp)
+    offers.register(mcp)
+    labels.register(mcp)
+    users.register(mcp)
     prompts.register(mcp)

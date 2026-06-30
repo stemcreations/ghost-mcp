@@ -154,5 +154,7 @@ path. When in doubt, ask it: *"What's the best way to use this to redesign my bl
 - [theme-conventions.md](theme-conventions.md) — the full template hierarchy, required
   tags, previewable helper subset, `package.json`, and CSS conventions. Read this when
   you (or the model) need the authoritative rules for hand-written templates.
-- [feature-roadmap.md](feature-roadmap.md) — what's planned next (pages, image upload,
-  publishing posts as newsletter emails, tiers/offers/labels, navigation editing).
+- [feature-roadmap.md](feature-roadmap.md) — Tiers 1 & 2 (pages, image upload,
+  post-as-newsletter-email, tiers/offers/labels/users) are now built; see it for the
+  remaining Tier 3 styling/vision work (navigation editing, theme restyle, contrast
+  checks).

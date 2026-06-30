@@ -54,21 +54,24 @@ def update_post(
     data: JSONDict,
     *,
     html: str | None = None,
+    params: dict[str, Any] | None = None,
 ) -> JSONDict:
     """Update a post by id.
 
     Reads the post first to supply the current ``updated_at`` (required by Ghost's
     collision check). Only the fields in ``data`` (plus ``html`` if given) are changed.
+    Extra query ``params`` (e.g. ``newsletter``/``email_segment`` to email the post)
+    are merged into the request, alongside the ``source=html`` flag when ``html`` is set.
     """
     current = client.read("posts", post_id)
     if not current:
         raise NotFoundError(f"post '{post_id}' not found")
     payload = {**data, "updated_at": current.get("updated_at")}
-    params = None
+    query: dict[str, Any] = dict(params or {})
     if html is not None:
         payload["html"] = html
-        params = {"source": "html"}
-    return client.edit("posts", post_id, payload, params=params)
+        query["source"] = "html"
+    return client.edit("posts", post_id, payload, params=query or None)
 
 
 def delete_post(client: GhostAdminClient, post_id: str) -> None:

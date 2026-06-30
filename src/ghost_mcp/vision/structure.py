@@ -17,6 +17,8 @@ import ipaddress
 import re
 import socket
 from collections import Counter
+from collections.abc import Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 from urllib.parse import urljoin, urlsplit
 
@@ -99,11 +101,13 @@ def _validate_public_url(url: str) -> None:
         raise GhostError(f"refusing to fetch a private or unresolvable host: {url!r}")
 
 
-def _fetch(url: str, *, timeout: float) -> tuple[str, int, str]:
-    """Fetch a public URL safely, returning ``(final_url, status_code, text)``.
+@contextmanager
+def _open_public_stream(url: str, *, timeout: float) -> Iterator[httpx.Response]:
+    """Open an SSRF-guarded streaming GET and yield the final response.
 
-    Validates every redirect hop, so a public URL can't bounce the request to an
-    internal host, and stops reading once the response exceeds the size cap.
+    Validates the URL and every redirect hop, so a public URL can't bounce the
+    request to an internal host (redirects are followed manually). The body is
+    streamed, so the caller must read it before the context exits.
     """
     redirects = 0
     while True:
@@ -116,13 +120,40 @@ def _fetch(url: str, *, timeout: float) -> tuple[str, int, str]:
                     raise GhostError(f"too many or invalid redirects fetching {url!r}")
                 url = urljoin(url, location)
                 continue
-            data = bytearray()
-            for chunk in response.iter_bytes():
-                data += chunk
-                if len(data) > _MAX_RESPONSE_BYTES:
-                    raise GhostError(f"response exceeds {_MAX_RESPONSE_BYTES} bytes")
-            text = data.decode(response.encoding or "utf-8", errors="replace")
-            return str(response.url), response.status_code, text
+            yield response
+            return
+
+
+def _read_capped(response: httpx.Response) -> bytes:
+    """Read a streamed response body, stopping once it exceeds the size cap."""
+    data = bytearray()
+    for chunk in response.iter_bytes():
+        data += chunk
+        if len(data) > _MAX_RESPONSE_BYTES:
+            raise GhostError(f"response exceeds {_MAX_RESPONSE_BYTES} bytes")
+    return bytes(data)
+
+
+def _fetch(url: str, *, timeout: float) -> tuple[str, int, str]:
+    """Fetch a public URL safely, returning ``(final_url, status_code, text)``."""
+    with _open_public_stream(url, timeout=timeout) as response:
+        data = _read_capped(response)
+        text = data.decode(response.encoding or "utf-8", errors="replace")
+        return str(response.url), response.status_code, text
+
+
+def fetch_public_bytes(url: str, *, timeout: float = 30.0) -> tuple[str, bytes, str | None]:
+    """Fetch a public URL's raw bytes under the SSRF guard.
+
+    Returns ``(final_url, body, content_type)``. Like :func:`_fetch` but returns
+    undecoded bytes, for binary resources such as images that must not be text-decoded.
+
+    Raises:
+        GhostError: if the URL (or a redirect target) is non-http(s), points at a
+            private/unresolvable host, or the response exceeds the size cap.
+    """
+    with _open_public_stream(url, timeout=timeout) as response:
+        return str(response.url), _read_capped(response), response.headers.get("content-type")
 
 
 def fetch_theme_structure(
