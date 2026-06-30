@@ -17,6 +17,8 @@ dist/
 .ruff_cache/
 
 # Local-only files (not part of the published package)
+# Local MCP client config: holds a machine-specific absolute path to uv/the project
+.mcp.json
 ghost-llms-full.txt
 handoffdoc.md
 # Ghost's official "Source" theme, kept locally as a reference for the builder
