@@ -69,8 +69,15 @@ Activating a theme is intentionally **not** a tool: it changes the live site, so
 The server ships an `instructions` block (always in the model's context) encoding the
 recommended order (extract the brand, confirm direction, build, preview, then upload
 inactive), plus a **`theme-a-site` prompt** the user can invoke to start that guided
-flow. See [docs/theme-conventions.md](docs/theme-conventions.md) for the full
-template and CSS contract.
+flow. Because those instructions are sent to the model on every connection, anyone who
+installs the server can simply ask their assistant *"how do I use this?"* and get the
+best-practice walkthrough.
+
+- **[docs/theming-guide.md](docs/theming-guide.md)** — the user-facing best-practices
+  guide: how to use it, the end-to-end theming path, and design/colour/SEO best
+  practices. Start here.
+- **[docs/theme-conventions.md](docs/theme-conventions.md)** — the full template and CSS
+  contract, for hand-writing templates.
 
 ## Requirements
 

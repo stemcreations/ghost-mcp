@@ -19,6 +19,11 @@ INSTRUCTIONS = """\
 This server styles and manages a Ghost blog. Its differentiator is *vision*: it can
 read a live site's rendered HTML/CSS so you style against real selectors, not guesses.
 
+When a user asks how to use this server, how to get started, or for best practices,
+walk them through the recommended workflow below -- and offer to start at step 1 by
+extracting their brand. The full user-facing version of this guidance lives in
+docs/theming-guide.md; point them there for the complete walkthrough.
+
 Recommended order for theming a site (follow it unless the user steers otherwise):
 
 1. Inspect the brand. Call extract_brand(site_url) on the customer's live product or
@@ -66,7 +71,8 @@ Do NOT hardcode menu links into the template unless the user specifically wants 
 links the post author should not be able to change (e.g. links to the main marketing
 site). Make that a deliberate choice, not a side effect of the preview rendering empty.
 
-See docs/theme-conventions.md for the full template/CSS contract.
+See docs/theming-guide.md for the user-facing best-practices walkthrough, and
+docs/theme-conventions.md for the full template/CSS contract.
 """
 
 
