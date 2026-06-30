@@ -59,3 +59,62 @@ def test_logo_falls_back_to_og_image_then_icon() -> None:
     )
     brand = _brand_from_sources(no_logo_img, "", "https://example.com/").to_dict()
     assert brand["logo_url"] == "https://example.com/og.png"
+
+
+# --- navigation extraction ------------------------------------------------------
+
+NAV_HTML = (
+    "<html><body>"
+    "<header>"
+    '<a href="/"><img src="/logo.svg" alt="Acme"></a>'  # logo link -> skipped
+    "<nav>"
+    '<a href="/">Home</a>'
+    '<a href="/">Home</a>'  # duplicate (e.g. mobile menu) -> deduped
+    '<a href="/campaigns">Campaigns</a>'
+    '<a href="https://partner.example/x">Partner</a>'  # external content link
+    '<a href="/login">Login</a>'  # membership
+    '<a href="/signup">Sign Up</a>'  # membership
+    "</nav>"
+    "</header>"
+    "<footer>"
+    '<a href="/about">About</a>'
+    '<a href="https://startplaying.games/gm/abc">StartPlaying</a>'
+    '<a href="/account">My Account</a>'  # membership in footer
+    "</footer>"
+    "</body></html>"
+)
+
+
+def _nav() -> dict:
+    return _brand_from_sources(NAV_HTML, "", "https://example.com/").to_dict()["navigation"]
+
+
+def test_navigation_primary_holds_deduped_header_content_links() -> None:
+    primary = _nav()["primary"]
+    assert [link["label"] for link in primary] == ["Home", "Campaigns", "Partner"]
+
+
+def test_navigation_secondary_holds_footer_content_links() -> None:
+    secondary = _nav()["secondary"]
+    assert [link["label"] for link in secondary] == ["About", "StartPlaying"]
+
+
+def test_navigation_membership_links_are_split_out_of_the_menus() -> None:
+    nav = _nav()
+    membership = [link["label"] for link in nav["membership"]]
+    assert membership == ["Login", "Sign Up", "My Account"]
+    # ...and none of them leak into the content menus.
+    in_menus = {link["label"] for link in nav["primary"] + nav["secondary"]}
+    assert in_menus.isdisjoint({"Login", "Sign Up", "My Account"})
+
+
+def test_navigation_flags_external_links() -> None:
+    by_label = {link["label"]: link for link in _nav()["primary"] + _nav()["secondary"]}
+    assert by_label["Home"]["external"] is False
+    assert by_label["Partner"]["external"] is True
+    assert by_label["StartPlaying"]["external"] is True
+
+
+def test_navigation_is_empty_when_no_header_or_footer() -> None:
+    nav = _brand_from_sources("<html><body><p>hi</p></body></html>", "", "https://e.com/")
+    assert nav.to_dict()["navigation"] == {"primary": [], "secondary": [], "membership": []}

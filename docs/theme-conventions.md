@@ -268,6 +268,15 @@ owner controls the links, instead of hardcoding `<a>` tags into the layout. This
 site. That empty preview is expected, not a bug — style the nav and confirm the menu
 in Ghost admin.
 
+**Reading and writing the menu over the API.** Navigation lives in site *settings*,
+not the theme: `extract_brand` returns the source site's menus
+(`navigation.primary`/`secondary` content links, plus a `navigation.membership`
+bucket for login/sign-up/account links it deliberately keeps out of the menu), and
+`update_navigation(primary, secondary)` writes them to the blog's `navigation` and
+`secondary_navigation` settings. Membership links usually point at the parent app's
+own auth rather than the blog, so surface them to the user and prefer Portal buttons
+(see [Members and Portal](#members-and-portal)) over putting them in the menu.
+
 The simplest version is the bare helper, which emits a preset `<ul class="nav">`:
 
 ```handlebars

@@ -3,11 +3,13 @@
 import json
 
 import httpx
+import pytest
 
 from ghost_mcp.admin import settings as settings_api
 from ghost_mcp.admin.client import GhostAdminClient
 from ghost_mcp.config import Settings
-from ghost_mcp.tools.settings import _PUBLIC_KEYS
+from ghost_mcp.errors import GhostError
+from ghost_mcp.tools.settings import _PUBLIC_KEYS, _nav_items
 
 SETTINGS = Settings(admin_url="https://example.com", staff_token="abc:" + "ab" * 32)
 
@@ -77,3 +79,22 @@ def test_flatten_drops_secret_keys() -> None:
         ]
     }
     assert settings_api._flatten(body) == {"title": "X"}
+
+
+def test_public_keys_include_both_navigation_menus() -> None:
+    assert "navigation" in _PUBLIC_KEYS
+    assert "secondary_navigation" in _PUBLIC_KEYS
+
+
+def test_nav_items_keeps_only_label_and_url() -> None:
+    raw = [{"label": "Home", "url": "/", "external": False, "kind": "link"}]
+    assert _nav_items(raw) == [{"label": "Home", "url": "/"}]
+
+
+def test_nav_items_handles_none() -> None:
+    assert _nav_items(None) == []
+
+
+def test_nav_items_rejects_malformed_entry() -> None:
+    with pytest.raises(GhostError):
+        _nav_items([{"label": "No URL"}])

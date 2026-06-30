@@ -275,6 +275,51 @@ _BUTTON_SELECTOR = re.compile(
 )
 
 
+#: Labels/URLs that read as account/membership actions rather than content nav.
+#: These usually point at the parent app's own auth (or, when re-theming an existing
+#: Ghost blog, at Portal) -- not links that belong in the blog's menu -- so they are
+#: surfaced separately for the model to ask the user about.
+_MEMBERSHIP_NAV = re.compile(
+    r"\b(log[\s-]?in|sign[\s-]?in|sign[\s-]?up|signin|signup|register|account|"
+    r"subscribe|join|log[\s-]?out|logout|member)\b",
+    re.IGNORECASE,
+)
+
+
+@dataclass
+class NavLink:
+    """A single navigation link found on a page."""
+
+    label: str
+    url: str
+    external: bool
+    kind: str  # "link" (content) or "membership" (login/sign-up/account)
+
+    def to_dict(self) -> dict:
+        return {"label": self.label, "url": self.url, "external": self.external, "kind": self.kind}
+
+
+@dataclass
+class Navigation:
+    """A site's menus, split so the model can reuse them on a Ghost blog.
+
+    ``primary``/``secondary`` are the content menus (header/footer) to suggest as the
+    blog's navigation; ``membership`` holds login/sign-up/account links, kept out of
+    those menus because they are typically the parent app's auth, not blog nav.
+    """
+
+    primary: list[NavLink] = field(default_factory=list)
+    secondary: list[NavLink] = field(default_factory=list)
+    membership: list[NavLink] = field(default_factory=list)
+
+    def to_dict(self) -> dict:
+        return {
+            "primary": [link.to_dict() for link in self.primary],
+            "secondary": [link.to_dict() for link in self.secondary],
+            "membership": [link.to_dict() for link in self.membership],
+        }
+
+
 @dataclass
 class Brand:
     """A site's brand tokens, extracted from its rendered HTML and CSS."""
@@ -284,6 +329,7 @@ class Brand:
     fonts: dict[str, str | None]
     logo_url: str | None
     button_style: dict[str, str]
+    navigation: Navigation = field(default_factory=Navigation)
 
     def to_dict(self) -> dict:
         """Return a JSON-serialisable view for returning from an MCP tool."""
@@ -293,6 +339,7 @@ class Brand:
             "fonts": self.fonts,
             "logo_url": self.logo_url,
             "button_style": self.button_style,
+            "navigation": self.navigation.to_dict(),
         }
 
 
@@ -386,6 +433,69 @@ def _button_style(rules: list[tuple[str, str]]) -> dict[str, str]:
     return {}
 
 
+def _nav_label(anchor: Tag) -> str | None:
+    """An anchor's visible text, falling back to aria-label/title; None if bare."""
+    label = " ".join(anchor.get_text().split())
+    if not label:
+        label = (anchor.get("aria-label") or anchor.get("title") or "").strip()
+    return label or None
+
+
+def _is_external(url: str, base_host: str | None) -> bool:
+    """True if ``url`` leaves the site (other host, protocol-relative, mailto/tel)."""
+    parts = urlsplit(url)
+    if parts.scheme in _ALLOWED_SCHEMES:
+        return bool(parts.hostname) and parts.hostname != base_host
+    if parts.scheme in ("mailto", "tel"):
+        return True
+    return url.startswith("//")  # protocol-relative -> external; "/path" -> internal
+
+
+def _links_in_scope(scope: Tag, base_host: str | None) -> list[NavLink]:
+    """Collect deduped, content-bearing anchors from a header/footer region.
+
+    Logo links (an anchor wrapping an ``<img>``), empty-label links, and bare ``#``
+    anchors are skipped. SVG-icon links are kept. First-seen order is preserved.
+    """
+    links: list[NavLink] = []
+    seen: set[tuple[str, str]] = set()
+    for anchor in scope.find_all("a"):
+        href = (anchor.get("href") or "").strip()
+        if not href or href == "#":
+            continue
+        if anchor.find("img") is not None:
+            continue  # a logo/brand link, not a menu item
+        label = _nav_label(anchor)
+        if not label:
+            continue
+        key = (label.lower(), href)
+        if key in seen:
+            continue
+        seen.add(key)
+        kind = "membership" if _MEMBERSHIP_NAV.search(f"{label} {href}") else "link"
+        links.append(
+            NavLink(label=label, url=href, external=_is_external(href, base_host), kind=kind)
+        )
+    return links
+
+
+def _extract_navigation(soup: BeautifulSoup, base_url: str) -> Navigation:
+    """Pull the header and footer menus, splitting membership links out of both."""
+    base_host = urlsplit(base_url).hostname
+    header = soup.find("header") or soup.find("nav")
+    footer = soup.find("footer")
+    header_links = _links_in_scope(header, base_host) if header else []
+    footer_links = _links_in_scope(footer, base_host) if footer else []
+
+    membership = [link for link in header_links if link.kind == "membership"]
+    membership += [link for link in footer_links if link.kind == "membership"]
+    return Navigation(
+        primary=[link for link in header_links if link.kind == "link"],
+        secondary=[link for link in footer_links if link.kind == "link"],
+        membership=membership,
+    )
+
+
 def _brand_from_sources(html: str, css: str, base_url: str) -> Brand:
     """Extract brand tokens from a page's HTML and concatenated CSS (no network).
 
@@ -399,6 +509,7 @@ def _brand_from_sources(html: str, css: str, base_url: str) -> Brand:
         fonts=_collect_fonts(rules),
         logo_url=_find_logo(soup, base_url),
         button_style=_button_style(rules),
+        navigation=_extract_navigation(soup, base_url),
     )
 
 

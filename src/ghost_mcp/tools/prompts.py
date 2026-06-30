@@ -14,7 +14,8 @@ writing any theme, gather these inputs from the user, in order, and confirm them
 before building.
 
 1. Product site. The live URL of their product or marketing site. As soon as you have
-   it, call extract_brand(site_url) and show what you found (palette, fonts, logo).{site_line}
+   it, call extract_brand(site_url) and show what you found (palette, fonts, logo, and
+   the navigation links).{site_line}
 2. Product and audience. One sentence on what the product does and who it is for.
 3. Colours. Match the site automatically, or specific hex values.
 4. Fonts. Match the site, or a preference (serif or sans, named families).
@@ -23,13 +24,22 @@ before building.
    should push readers toward (signup, demo, booking). This shapes every CTA.
 7. Content and layout. The post categories, and any layout preference (featured hero,
    grid, or list).
+8. Navigation. extract_brand also returns the site's menus (navigation.primary,
+   navigation.secondary, navigation.membership). Show the content links it found and
+   ask which to use for the blog's header and footer menus. Treat membership links
+   (login/sign-up/account) specially: they usually point at the parent app's own
+   auth, NOT the blog, so ask the user whether to drop them (default), keep them as
+   external links, or -- only if you are re-theming an existing Ghost blog -- wire
+   them into the theme as Portal buttons (data-portal). Never add membership links to
+   the menus automatically.
 
 Then summarise the direction in a few lines and get a clear yes before calling
 create_theme. Build the header and footer in default_template, page sections in the
 content templates, and the design in styles. Preview with preview_theme and iterate
 before suggesting upload. Once the layout is approved, set Ghost's own accent colour
-(update_branding) and site metadata (update_site_metadata) to match. Install with
-upload_theme; it stays inactive, so tell the user to activate it in Ghost Admin.
+(update_branding), site metadata (update_site_metadata), and the navigation menus the
+user chose (update_navigation) to match. Install with upload_theme; it stays inactive,
+so tell the user to activate it in Ghost Admin.
 """
 
 

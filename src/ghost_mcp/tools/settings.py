@@ -7,9 +7,12 @@ cohesive with the rest of the site.
 
 from __future__ import annotations
 
+from typing import Any
+
 from fastmcp import FastMCP
 
 from ghost_mcp.admin import settings as settings_api
+from ghost_mcp.errors import GhostError
 from ghost_mcp.tools._client import admin_client
 
 #: The brand/SEO subset surfaced to the model (the full table holds ~99 keys,
@@ -31,8 +34,25 @@ _PUBLIC_KEYS = (
     "twitter_image",
     "locale",
     "navigation",
+    "secondary_navigation",
     "codeinjection_head",
 )
+
+
+def _nav_items(raw: list[dict] | None) -> list[dict[str, str]]:
+    """Coerce raw menu entries into Ghost's ``[{label, url}]`` navigation value.
+
+    Each entry must carry a ``label`` and a ``url``; any extra keys (e.g. the
+    ``external``/``kind`` hints from ``extract_brand``) are dropped, so the output of
+    that tool can be passed straight through. Raises ``GhostError`` on a malformed
+    entry rather than silently writing a broken menu.
+    """
+    items: list[dict[str, str]] = []
+    for entry in raw or []:
+        if not isinstance(entry, dict) or "label" not in entry or "url" not in entry:
+            raise GhostError("each navigation item needs a 'label' and a 'url'.")
+        items.append({"label": str(entry["label"]), "url": str(entry["url"])})
+    return items
 
 
 def register(mcp: FastMCP) -> None:
@@ -105,5 +125,40 @@ def register(mcp: FastMCP) -> None:
             changes["accent_color"] = accent_color
         if not changes:
             return {"updated": {}, "note": "No fields provided. Nothing changed."}
+        updated = settings_api.update_settings(admin_client(), changes)
+        return {"updated": {key: updated.get(key) for key in changes}}
+
+    @mcp.tool
+    def update_navigation(
+        primary: list[dict] | None = None,
+        secondary: list[dict] | None = None,
+    ) -> dict:
+        """Set the blog's navigation menus (primary header and secondary/footer).
+
+        Each menu is a list of ``{"label": ..., "url": ...}`` items. The whole menu
+        is REPLACED, not appended to, so send the complete set you want; pass only the
+        menu(s) you mean to change and the other is left untouched. URLs are usually
+        site-relative (``/about/``) or absolute. Extra keys on an item (such as the
+        ``external``/``kind`` hints from ``extract_brand``) are ignored, so links read
+        from a site can be passed straight through.
+
+        Membership actions (login/sign-up/account) belong in the theme as Ghost Portal
+        buttons (``data-portal``), not here -- don't add them as menu links. Confirm
+        the menus with the user before calling this; it changes the live site.
+
+        Args:
+            primary: The primary (header) menu, or ``None`` to leave it unchanged.
+            secondary: The secondary (footer) menu, or ``None`` to leave it unchanged.
+
+        Returns:
+            The menus that were updated, with their new values.
+        """
+        changes: dict[str, Any] = {}
+        if primary is not None:
+            changes["navigation"] = _nav_items(primary)
+        if secondary is not None:
+            changes["secondary_navigation"] = _nav_items(secondary)
+        if not changes:
+            return {"updated": {}, "note": "No menus provided. Nothing changed."}
         updated = settings_api.update_settings(admin_client(), changes)
         return {"updated": {key: updated.get(key) for key in changes}}

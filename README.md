@@ -19,9 +19,9 @@ Working: auth, vision, theme generation/preview/upload, site settings, and conte
 audience management (posts, tags, members, newsletters). Roadmap:
 
 - [x] Authenticated Admin API client (generic browse/read/add/edit/delete)
-- [x] **Vision**: `extract_brand` distils a live site's brand; `get_theme_structure` fetches its markup + CSS
+- [x] **Vision**: `extract_brand` distils a live site's brand + navigation; `get_theme_structure` fetches its markup + CSS
 - [x] **Themes**: generate, preview locally, upload, list, and download themes
-- [x] **Site settings**: read/update brand + SEO metadata (title, description, accent, meta/OG/Twitter)
+- [x] **Site settings**: read/update brand + SEO metadata (title, description, accent, meta/OG/Twitter) and navigation menus
 - [x] **Management**: posts, tags, members, and newsletters as CRUD tools
 - [x] **Guided flow**: a `theme-a-site` prompt and a server instructions block encode the brand-first workflow
 - [ ] **Management**: tiers, offers, and users as they're needed (next)
@@ -31,7 +31,7 @@ audience management (posts, tags, members, newsletters). Roadmap:
 The server exposes these tools to the model:
 
 **Vision**
-- `extract_brand`: distil a live site into clean brand tokens (colour palette, heading/body fonts, logo, button style) to design against.
+- `extract_brand`: distil a live site into clean brand tokens (colour palette, heading/body fonts, logo, button style) plus its navigation menus (header/footer content links, with login/sign-up/account links flagged separately) to design against.
 - `get_theme_structure`: fetch a live page's HTML skeleton and linked CSS, so styling targets selectors that actually exist.
 
 **Themes**
@@ -49,6 +49,7 @@ The server exposes these tools to the model:
 - `get_site_settings`: read brand and SEO settings.
 - `update_site_metadata`: site title/description plus SEO and social metadata (`meta_*`, Open Graph, Twitter cards).
 - `update_branding`: the brand accent colour.
+- `update_navigation`: set the primary (header) and secondary (footer) navigation menus.
 
 **Posts**
 - `list_posts` / `get_post`: browse posts, or read one (with rendered HTML and a draft `preview_url`).
