@@ -9,7 +9,7 @@ from ghost_mcp.admin import posts as posts_api
 from ghost_mcp.admin.client import GhostAdminClient
 from ghost_mcp.config import Settings
 from ghost_mcp.errors import NotFoundError
-from ghost_mcp.tools.posts import _summary
+from ghost_mcp.tools.posts import _build_fields, _detail, _summary
 
 SETTINGS = Settings(admin_url="https://example.com", staff_token="abc:" + "ab" * 32)
 
@@ -98,6 +98,44 @@ def test_update_post_merges_source_flag_with_extra_params() -> None:
     posts_api.update_post(
         _client(handler), "1", {}, html="<p>x</p>", params={"newsletter": "weekly"}
     )
+
+
+def _fields(**overrides) -> dict:
+    base = dict(
+        title=None,
+        status=None,
+        excerpt=None,
+        tags=None,
+        feature_image=None,
+        meta_title=None,
+        meta_description=None,
+        codeinjection_head=None,
+        codeinjection_foot=None,
+    )
+    base.update(overrides)
+    return _build_fields(**base)
+
+
+def test_build_fields_includes_code_injection() -> None:
+    fields = _fields(
+        codeinjection_head='<script type="application/ld+json">{}</script>',
+        codeinjection_foot="<!-- foot -->",
+    )
+    assert fields["codeinjection_head"] == '<script type="application/ld+json">{}</script>'
+    assert fields["codeinjection_foot"] == "<!-- foot -->"
+
+
+def test_build_fields_omits_untouched_code_injection() -> None:
+    # None means "leave unchanged", so the field must not appear in the payload...
+    assert "codeinjection_head" not in _fields()
+    # ...but an empty string is a real value (clears an existing injection).
+    assert _fields(codeinjection_foot="")["codeinjection_foot"] == ""
+
+
+def test_detail_surfaces_code_injection() -> None:
+    detail = _detail({"id": "1", "codeinjection_head": "<script></script>"})
+    assert detail["codeinjection_head"] == "<script></script>"
+    assert detail["codeinjection_foot"] is None
 
 
 def test_summary_includes_native_preview_url() -> None:

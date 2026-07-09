@@ -37,6 +37,8 @@ def _detail(post: dict, site_url: str | None = None) -> dict:
         "excerpt": post.get("custom_excerpt") or post.get("excerpt"),
         "meta_title": post.get("meta_title"),
         "meta_description": post.get("meta_description"),
+        "codeinjection_head": post.get("codeinjection_head"),
+        "codeinjection_foot": post.get("codeinjection_foot"),
         "tags": [tag.get("name") for tag in (post.get("tags") or [])],
     }
 
@@ -49,6 +51,8 @@ def _build_fields(
     feature_image: str | None,
     meta_title: str | None,
     meta_description: str | None,
+    codeinjection_head: str | None,
+    codeinjection_foot: str | None,
 ) -> dict:
     fields: dict = {}
     if title is not None:
@@ -65,6 +69,10 @@ def _build_fields(
         fields["meta_title"] = meta_title
     if meta_description is not None:
         fields["meta_description"] = meta_description
+    if codeinjection_head is not None:
+        fields["codeinjection_head"] = codeinjection_head
+    if codeinjection_foot is not None:
+        fields["codeinjection_foot"] = codeinjection_foot
     return fields
 
 
@@ -120,6 +128,8 @@ def register(mcp: FastMCP) -> None:
         feature_image: str | None = None,
         meta_title: str | None = None,
         meta_description: str | None = None,
+        codeinjection_head: str | None = None,
+        codeinjection_foot: str | None = None,
     ) -> dict:
         """Create a blog post from HTML content.
 
@@ -127,11 +137,25 @@ def register(mcp: FastMCP) -> None:
         ``tags`` are given as names and created if they don't already exist.
         ``meta_title``/``meta_description`` set the post's search-snippet metadata.
 
+        ``codeinjection_head``/``codeinjection_foot`` are raw HTML injected verbatim
+        into this post's ``<head>`` and page footer. Unlike ``html`` (which Ghost
+        converts to Lexical and strips ``<script>`` from), code injection is left
+        untouched, so it's the right home for a ``<script type="application/ld+json">``
+        block such as FAQ or Article structured data.
+
         Returns the created post's summary, including a ``preview_url`` for reviewing
         the draft in the active theme before publishing.
         """
         fields = _build_fields(
-            title, status, excerpt, tags, feature_image, meta_title, meta_description
+            title,
+            status,
+            excerpt,
+            tags,
+            feature_image,
+            meta_title,
+            meta_description,
+            codeinjection_head,
+            codeinjection_foot,
         )
         created = posts_api.create_post(admin_client(), fields, html=html or None)
         return _summary(created, config().site_url)
@@ -147,15 +171,32 @@ def register(mcp: FastMCP) -> None:
         feature_image: str | None = None,
         meta_title: str | None = None,
         meta_description: str | None = None,
+        codeinjection_head: str | None = None,
+        codeinjection_foot: str | None = None,
     ) -> dict:
         """Update an existing post by id; only the fields you pass are changed.
 
         Pass ``status="published"`` to publish a draft, or ``status="draft"`` to
         unpublish. An empty ``html`` is treated as "leave the body unchanged" (same
-        as create), so it never blanks a post. Returns the updated post summary.
+        as create), so it never blanks a post.
+
+        ``codeinjection_head``/``codeinjection_foot`` are raw HTML injected verbatim
+        into this post's ``<head>`` and page footer, untouched by Ghost's Lexical
+        conversion. Use them for a ``<script type="application/ld+json">`` block
+        (e.g. FAQ or Article structured data) that would be stripped from ``html``.
+        Pass an empty string to clear an existing injection. Returns the updated
+        post summary.
         """
         fields = _build_fields(
-            title, status, excerpt, tags, feature_image, meta_title, meta_description
+            title,
+            status,
+            excerpt,
+            tags,
+            feature_image,
+            meta_title,
+            meta_description,
+            codeinjection_head,
+            codeinjection_foot,
         )
         updated = posts_api.update_post(admin_client(), post_id, fields, html=html or None)
         return _summary(updated, config().site_url)
