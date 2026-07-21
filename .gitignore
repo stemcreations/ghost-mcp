@@ -31,3 +31,8 @@ SECURITY_REVIEW.md
 CODE_REVIEW.md
 .claude/settings.json
 logo.svg
+
+# Local research data: the active profile and custom incumbent domains.
+# Site-specific, so it stays out of the repo (set GHOST_MCP_DATA_DIR to relocate it).
+incumbents.json
+.ghost-mcp/

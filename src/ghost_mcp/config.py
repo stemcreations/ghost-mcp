@@ -15,6 +15,11 @@ automatically to make development convenient):
     ``v6.0``. Defaults to ``v6.0``. This is a client compatibility hint that should
     match your running Ghost major version; it does not change the server's
     behaviour.
+
+``SERPER_API_KEY`` (optional)
+    A serper.dev key. When absent the search-research tools are simply not
+    registered, so the rest of the server works unchanged; see
+    :func:`serper_api_key`.
 """
 
 from __future__ import annotations
@@ -97,6 +102,19 @@ def load_settings() -> Settings:
         )
     api_version = _normalize_version(os.environ.get("GHOST_API_VERSION", ""))
     return Settings(admin_url=admin_url, staff_token=staff_token, api_version=api_version)
+
+
+def serper_api_key() -> str | None:
+    """Return the optional serper.dev API key, or ``None`` when it isn't configured.
+
+    Deliberately standalone rather than a :class:`Settings` field: the research
+    tools are optional, and asking whether they're available must not depend on the
+    *required* Ghost credentials validating first. It is read at registration time
+    to decide whether to expose the research tools at all, so adding the key takes
+    effect on the next server restart.
+    """
+    load_dotenv()
+    return os.environ.get("SERPER_API_KEY", "").strip() or None
 
 
 def _normalize_version(raw: str) -> str:

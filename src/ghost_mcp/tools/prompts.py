@@ -8,6 +8,44 @@ action instead of the model rediscovering the steps.
 
 from fastmcp import FastMCP
 
+from ghost_mcp.config import serper_api_key
+from ghost_mcp.research.interview import INTERVIEW
+
+_SET_UP_RESEARCH = """\
+You are setting up search research for this blog, so topic choices rest on what
+already ranks instead of on guesses.
+
+Start by calling plan_research_profile, then interview the user with the questions
+below. Ask them conversationally, a few at a time -- not as a form -- and do not answer
+any of them yourself. The domains involved are specific to this business and cannot be
+read off the blog.
+
+{questions}
+
+Why this matters enough to ask: a profile decides which domains count as unbeatable,
+and a wrong one fails silently. Keywords the user could win come back as SKIP, and ones
+owned by competitors the profile never heard of come back as OPEN. Nothing in the
+output shows that it was guessed.
+
+When they have answered: summarise it back, get a clear yes, then call
+create_research_profile (competitors and SERP regulars as domains, the unbeatable ones
+as dominant_domains) followed by set_research_profile. Finish by running search_serp on
+3-5 seed keywords built from the user's OWN terminology and showing which are OPEN,
+CONTESTED or SKIP -- do not draft anything until they pick one.
+
+Treat the profile as a starting point: whenever a search turns up a domain it missed,
+offer to record it with add_incumbents.
+"""
+
+_NO_KEY = """\
+Search research is not available: this server has no SERPER_API_KEY configured, so the
+research tools were not registered.
+
+Tell the user they need a key from serper.dev, set as SERPER_API_KEY either in their
+MCP client's env block for this server or in a local .env file, and that the server
+must be restarted afterwards. Do not attempt the research another way.
+"""
+
 _THEME_A_SITE = """\
 You are designing a custom Ghost blog theme that matches an existing brand. Before
 writing any theme, gather these inputs from the user, in order, and confirm them back
@@ -56,3 +94,18 @@ def register(mcp: FastMCP) -> None:
         """
         site_line = f"\n   The user gave: {site_url} -- start there." if site_url else ""
         return _THEME_A_SITE.format(site_line=site_line)
+
+    @mcp.prompt(name="set-up-research", title="Set up search research")
+    def set_up_research() -> str:
+        """Guided flow to configure keyword research for this blog's niche.
+
+        Interviews the user about their business, competitors and customers' own
+        terminology, then builds the research profile every verdict depends on.
+        """
+        if not serper_api_key():
+            return _NO_KEY
+        questions = "\n".join(
+            f"{index}. {question.ask}\n   ({question.why})"
+            for index, question in enumerate(INTERVIEW, start=1)
+        )
+        return _SET_UP_RESEARCH.format(questions=questions)

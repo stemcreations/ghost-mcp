@@ -35,6 +35,61 @@ The server exposes these tools to the model:
 - `get_theme_structure`: fetch a live page's HTML skeleton and linked CSS, so styling targets selectors that actually exist.
 - `check_contrast`: WCAG contrast ratio (and AA/AAA pass levels) between two colours, so text-on-accent stays readable.
 
+**Research** — *optional; registered only when `SERPER_API_KEY` is set*
+- `search_serp`: see what currently ranks for a query and whether it's worth writing for. Cheap triage (1 API credit, no crawling).
+- `expand_keywords`: expand a seed topic into the queries people actually search — "people also ask", related searches and autocomplete — grouped by intent (`alternatives` / `local` / `comparison` / `cost` / `how_to` / `commercial` / `informational`).
+- `build_content_brief`: crawl the ranking pages and extract the structure they share: consensus sections, unique angles, target length, and whether they carry pricing tables or FAQs.
+- `find_content_gaps`: match the SERP's consensus topics against posts already on *your* blog, so you extend an existing post instead of publishing a competitor to it.
+- `plan_research_profile`: the questions to ask the user before building a profile — run this first, since a guessed profile fails silently.
+- `list_research_profiles` / `set_research_profile`: inspect and switch the niche profile the verdicts are judged against.
+- `add_incumbents` / `remove_incumbents`: record domains that keep ranking, so later verdicts account for them. Persisted to disk.
+- `create_research_profile` / `delete_research_profile`: define a profile for a niche the bundled ones don't cover.
+
+There's also a `set-up-research` prompt that runs the whole interview-and-configure
+flow in one action.
+
+### Research profiles
+
+A verdict like "this keyword is unwinnable" only means something relative to a
+niche. The sites that own *"booking software for salons"* (Capterra, G2, competing
+vendors) are not the ones that own *"is red light therapy safe"* (hospitals, medical
+publishers) — so the domain list is selectable rather than baked in.
+
+Three profiles ship as starting points: **`general`** (the default — social platforms
+and marketplaces only, no assumptions), **`saas`** (review aggregators and "best X
+software" roundups) and **`wellness`** (hospitals, medical and lifestyle publishers,
+booking directories). They're seeds, not a closed set: `create_research_profile`
+defines your own, and a custom profile may reuse a bundled name to override it.
+
+Each profile marks a **dominant** subset — domains so authoritative that three of them
+ranking makes a keyword hopeless whatever you write. For `wellness` that's medical
+authorities (Google treats health topics as YMYL and leans on institutional trust);
+for `saas` it's the review aggregators.
+
+The useful list is the one that grows. When a search turns up a competitor that isn't
+flagged yet, `add_incumbents` records it, and every later verdict accounts for it.
+Custom profiles and additions live in `incumbents.json` (see `GHOST_MCP_DATA_DIR`);
+your own domain is always excluded, so your pages never count against you.
+
+Keep it a *"cannot beat this"* list rather than a list of every competitor. Each domain
+added makes verdicts more pessimistic, so logging weak rivals penalises you for
+discovering that competition is thin.
+
+### Verdicts
+
+| Verdict | Meaning |
+|---|---|
+| `UNMET_DEMAND` | Forums rank, real pages don't — people are asking and nobody has answered. The best case. |
+| `OPEN` | Little competition. Write it. |
+| `CONTESTED` | Winnable, but only with a genuinely better first-party answer. |
+| `SKIP` | Established pages own it, or three of the profile's dominant domains rank. Re-angle rather than abandon. |
+| `LOCAL_INTENT` | Google showed a map pack: build a service or location page, not a post. |
+| `UPDATE_EXISTING` | You already rank — extend that page instead of competing with yourself. |
+
+Forum and social results (Reddit, Quora, Facebook, …) are scored **separately** from
+competitor pages. A thread ranking usually means no good answer exists yet, so counting
+it as competition inverts the strongest buying signal there is.
+
 **Themes**
 - `create_theme`: generate a complete, valid, previewable theme from a CSS design (and optional `index`/`post`/`page`/`default` template overrides).
 - `preview_theme`: render a theme locally and serve it on localhost to review before publishing.
@@ -131,6 +186,21 @@ The server reads its configuration from environment variables:
 | `GHOST_ADMIN_URL` | yes | `https://yourblog.example.com` |
 | `GHOST_STAFF_ACCESS_TOKEN` | yes | `<id>:<secret>` (from your Ghost user profile) |
 | `GHOST_API_VERSION` | no | `v6.0` (default; match your Ghost major version) |
+| `SERPER_API_KEY` | no | a [serper.dev](https://serper.dev) key; enables the research tools |
+| `SERP_PROFILE` | no | starting research profile: `general` (default), `saas`, `wellness` |
+| `SERP_INCUMBENTS` | no | extra competitor domains, comma-separated |
+| `GHOST_MCP_DATA_DIR` | no | where `incumbents.json` lives (default `~/.ghost-mcp`) |
+
+`SERPER_API_KEY` is genuinely optional. Without it the research tools are simply not
+registered and everything else works unchanged — the key is read once at startup, so
+adding it later needs a server restart.
+
+The other three only matter if you use those tools. `SERP_PROFILE` picks the starting
+[profile](#research-profiles), though `set_research_profile` persists its own choice
+and takes precedence. `SERP_INCUMBENTS` is for deployments where the data directory
+isn't writable; otherwise prefer `add_incumbents`, which persists. Set
+`GHOST_MCP_DATA_DIR=.` to keep `incumbents.json` inside the project — it's gitignored
+there, since the list is specific to your site rather than to the software.
 
 Provide them **either** way:
 
@@ -248,6 +318,7 @@ The package is layered so each piece has one job:
 | Errors | `ghost_mcp.errors` | The shared `GhostError` exception hierarchy.          |
 | Admin  | `ghost_mcp.admin`  | Authenticated Admin API: token signing, generic client, theme + settings helpers. |
 | Vision | `ghost_mcp.vision` | Fetch the public rendered page + CSS (no auth).       |
+| Research | `ghost_mcp.research` | Search the SERP and analyse ranking pages (optional; needs a key). |
 | Themes | `ghost_mcp.theme`  | Generate, locally preview, and package themes.        |
 | Tools  | `ghost_mcp.tools`  | Thin MCP wrappers over the layers above.              |
 | Server | `ghost_mcp.server` | Assemble the layers into a runnable server.           |

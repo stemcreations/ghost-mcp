@@ -28,6 +28,10 @@ class NotFoundError(GhostError):
     """A requested resource was not found."""
 
 
+class ResearchError(GhostError):
+    """A search-research request failed (bad key, exhausted credits, bad response)."""
+
+
 class GhostAPIError(GhostError):
     """The Ghost Admin API returned an error response.
 

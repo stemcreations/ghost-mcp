@@ -13,6 +13,7 @@ from functools import lru_cache
 
 from ghost_mcp.admin.client import GhostAdminClient
 from ghost_mcp.config import Settings, load_settings
+from ghost_mcp.research.serper import SerperClient
 
 
 @lru_cache(maxsize=1)
@@ -25,5 +26,16 @@ def config() -> Settings:
 def admin_client() -> GhostAdminClient:
     """A single Admin API client reused for the life of the process."""
     client = GhostAdminClient(config())
+    atexit.register(client.close)
+    return client
+
+
+@lru_cache(maxsize=1)
+def serper_client() -> SerperClient:
+    """A single serper.dev client reused for the life of the process.
+
+    Only reachable when the research tools were registered, i.e. when a key exists.
+    """
+    client = SerperClient()
     atexit.register(client.close)
     return client

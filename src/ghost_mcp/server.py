@@ -71,6 +71,38 @@ Do NOT hardcode menu links into the template unless the user specifically wants 
 links the post author should not be able to change (e.g. links to the main marketing
 site). Make that a deliberate choice, not a side effect of the preview rendering empty.
 
+Search research (optional): tools named search_serp, expand_keywords,
+build_content_brief and find_content_gaps decide what to write by looking at what
+already ranks. They exist only when SERPER_API_KEY is configured. If the user asks
+for keyword research, competitor analysis, or content ideas and those tools are NOT
+in your tool list, say so plainly: they need a serper.dev key set as SERPER_API_KEY
+in the MCP client's env config (or a local .env), followed by a server restart. Do
+not attempt the research by other means and do not treat it as unsupported.
+
+When they are available, triage cheaply before committing: search_serp or
+expand_keywords first (1-2 API credits), and only build_content_brief for a keyword
+worth writing. Always check the opportunity verdict before drafting -- LOCAL_INTENT
+means the query wants a service or location page, not a blog post, and
+UPDATE_EXISTING means an existing post should be extended instead.
+
+UNMET_DEMAND is the best verdict to see: forum and social threads rank while few real
+pages do, meaning people are asking and nobody has answered well. Treat it as a
+stronger signal than OPEN, and open the actual threads to write in the asker's words.
+
+Verdicts are relative to a research profile, which decides which domains count as
+unbeatable for this blog's niche. The default profile ("general") assumes nothing.
+
+If the active profile is still "general" when a user asks for research, set it up
+first: call plan_research_profile and ask the user its questions before running
+searches. Do NOT invent the answers -- the competitors and terminology involved cannot
+be read off the blog, and a guessed profile fails silently rather than loudly, marking
+winnable keywords SKIP and unwinnable ones OPEN. The user can decline, in which case
+say plainly that verdicts will undercount their competitors.
+
+When a search turns up a competitor or aggregator that is not already flagged
+is_incumbent, offer to record it with add_incumbents -- that is how the analysis
+sharpens over time, and it persists across restarts.
+
 See docs/theming-guide.md for the user-facing best-practices walkthrough, and
 docs/theme-conventions.md for the full template/CSS contract.
 """
