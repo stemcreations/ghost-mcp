@@ -161,3 +161,33 @@ def test_update_post_raises_when_missing() -> None:
 
     with pytest.raises(NotFoundError):
         posts_api.update_post(_client(handler), "missing", {"title": "x"})
+
+
+def test_build_fields_maps_new_seo_fields() -> None:
+    from ghost_mcp.tools.posts import _build_fields
+
+    fields = _build_fields(
+        title="T",
+        slug="short-slug",
+        feature_image="https://x/i.jpg",
+        feature_image_alt="A commercial sauna interior",
+        excerpt="E",
+    )
+    assert fields["slug"] == "short-slug"
+    assert fields["feature_image_alt"] == "A commercial sauna interior"
+    assert fields["custom_excerpt"] == "E"  # renamed to Ghost's field
+
+
+def test_build_fields_omits_unset_but_keeps_empty_strings() -> None:
+    """None means 'leave unchanged'; an empty string must still clear a field."""
+    from ghost_mcp.tools.posts import _build_fields
+
+    fields = _build_fields(title="T", slug=None, codeinjection_head="")
+    assert "slug" not in fields
+    assert fields["codeinjection_head"] == ""
+
+
+def test_build_fields_expands_tag_names() -> None:
+    from ghost_mcp.tools.posts import _build_fields
+
+    assert _build_fields(tags=["Sauna", "SEO"])["tags"] == [{"name": "Sauna"}, {"name": "SEO"}]

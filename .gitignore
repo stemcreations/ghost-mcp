@@ -36,3 +36,6 @@ logo.svg
 # Site-specific, so it stays out of the repo (set GHOST_MCP_DATA_DIR to relocate it).
 incumbents.json
 .ghost-mcp/
+
+# Business/marketing briefs for the site this MCP manages, not part of the software.
+sauna-page-brief.md

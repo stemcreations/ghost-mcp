@@ -35,6 +35,8 @@ def _detail(post: dict, site_url: str | None = None) -> dict:
         **_summary(post, site_url),
         "html": post.get("html"),
         "excerpt": post.get("custom_excerpt") or post.get("excerpt"),
+        "feature_image": post.get("feature_image"),
+        "feature_image_alt": post.get("feature_image_alt"),
         "meta_title": post.get("meta_title"),
         "meta_description": post.get("meta_description"),
         "codeinjection_head": post.get("codeinjection_head"),
@@ -43,36 +45,37 @@ def _detail(post: dict, site_url: str | None = None) -> dict:
     }
 
 
-def _build_fields(
-    title: str | None,
-    status: str | None,
-    excerpt: str | None,
-    tags: list[str] | None,
-    feature_image: str | None,
-    meta_title: str | None,
-    meta_description: str | None,
-    codeinjection_head: str | None,
-    codeinjection_foot: str | None,
-) -> dict:
-    fields: dict = {}
-    if title is not None:
-        fields["title"] = title
-    if status is not None:
-        fields["status"] = status
-    if excerpt is not None:
-        fields["custom_excerpt"] = excerpt
+#: Tool argument name -> Ghost field name, for the fields that pass straight through.
+#: A mapping rather than a chain of ``if`` statements so adding a field is one line,
+#: and so the two tools cannot drift apart on which fields they accept.
+_FIELDS = {
+    "title": "title",
+    "slug": "slug",
+    "status": "status",
+    "excerpt": "custom_excerpt",
+    "feature_image": "feature_image",
+    "feature_image_alt": "feature_image_alt",
+    "meta_title": "meta_title",
+    "meta_description": "meta_description",
+    "codeinjection_head": "codeinjection_head",
+    "codeinjection_foot": "codeinjection_foot",
+}
+
+
+def _build_fields(**values: object) -> dict:
+    """Map supplied tool arguments onto Ghost's field names, dropping any left unset.
+
+    ``None`` means "leave unchanged", which is why it is skipped rather than sent. An
+    empty string is sent, so a field can still be deliberately cleared.
+    """
+    fields: dict = {
+        ghost_name: values[argument]
+        for argument, ghost_name in _FIELDS.items()
+        if values.get(argument) is not None
+    }
+    tags = values.get("tags")
     if tags is not None:
-        fields["tags"] = [{"name": name} for name in tags]
-    if feature_image is not None:
-        fields["feature_image"] = feature_image
-    if meta_title is not None:
-        fields["meta_title"] = meta_title
-    if meta_description is not None:
-        fields["meta_description"] = meta_description
-    if codeinjection_head is not None:
-        fields["codeinjection_head"] = codeinjection_head
-    if codeinjection_foot is not None:
-        fields["codeinjection_foot"] = codeinjection_foot
+        fields["tags"] = [{"name": name} for name in tags]  # type: ignore[union-attr]
     return fields
 
 
@@ -123,9 +126,11 @@ def register(mcp: FastMCP) -> None:
         title: str,
         html: str = "",
         status: str = "draft",
+        slug: str | None = None,
         excerpt: str | None = None,
         tags: list[str] | None = None,
         feature_image: str | None = None,
+        feature_image_alt: str | None = None,
         meta_title: str | None = None,
         meta_description: str | None = None,
         codeinjection_head: str | None = None,
@@ -137,6 +142,14 @@ def register(mcp: FastMCP) -> None:
         ``tags`` are given as names and created if they don't already exist.
         ``meta_title``/``meta_description`` set the post's search-snippet metadata.
 
+        ``slug`` sets the URL path; Ghost derives one from the title if omitted. A
+        shorter, keyword-led slug is usually better than a full title, and changing it
+        after publishing breaks existing links.
+
+        ``feature_image_alt`` is the alt text for the feature image. Set it whenever
+        you set ``feature_image``: it is what screen readers announce, and an image
+        with no alt text is invisible to them.
+
         ``codeinjection_head``/``codeinjection_foot`` are raw HTML injected verbatim
         into this post's ``<head>`` and page footer. Unlike ``html`` (which Ghost
         converts to Lexical and strips ``<script>`` from), code injection is left
@@ -147,15 +160,17 @@ def register(mcp: FastMCP) -> None:
         the draft in the active theme before publishing.
         """
         fields = _build_fields(
-            title,
-            status,
-            excerpt,
-            tags,
-            feature_image,
-            meta_title,
-            meta_description,
-            codeinjection_head,
-            codeinjection_foot,
+            title=title,
+            slug=slug,
+            status=status,
+            excerpt=excerpt,
+            tags=tags,
+            feature_image=feature_image,
+            feature_image_alt=feature_image_alt,
+            meta_title=meta_title,
+            meta_description=meta_description,
+            codeinjection_head=codeinjection_head,
+            codeinjection_foot=codeinjection_foot,
         )
         created = posts_api.create_post(admin_client(), fields, html=html or None)
         return _summary(created, config().site_url)
@@ -166,9 +181,11 @@ def register(mcp: FastMCP) -> None:
         title: str | None = None,
         html: str | None = None,
         status: str | None = None,
+        slug: str | None = None,
         excerpt: str | None = None,
         tags: list[str] | None = None,
         feature_image: str | None = None,
+        feature_image_alt: str | None = None,
         meta_title: str | None = None,
         meta_description: str | None = None,
         codeinjection_head: str | None = None,
@@ -180,6 +197,12 @@ def register(mcp: FastMCP) -> None:
         unpublish. An empty ``html`` is treated as "leave the body unchanged" (same
         as create), so it never blanks a post.
 
+        ``slug`` changes the URL path. On an already-published post this breaks every
+        existing link to it, so only change it on explicit instruction.
+
+        ``feature_image_alt`` sets the feature image's alt text, which screen readers
+        announce in place of the image. Worth adding to older posts that have none.
+
         ``codeinjection_head``/``codeinjection_foot`` are raw HTML injected verbatim
         into this post's ``<head>`` and page footer, untouched by Ghost's Lexical
         conversion. Use them for a ``<script type="application/ld+json">`` block
@@ -188,15 +211,17 @@ def register(mcp: FastMCP) -> None:
         post summary.
         """
         fields = _build_fields(
-            title,
-            status,
-            excerpt,
-            tags,
-            feature_image,
-            meta_title,
-            meta_description,
-            codeinjection_head,
-            codeinjection_foot,
+            title=title,
+            slug=slug,
+            status=status,
+            excerpt=excerpt,
+            tags=tags,
+            feature_image=feature_image,
+            feature_image_alt=feature_image_alt,
+            meta_title=meta_title,
+            meta_description=meta_description,
+            codeinjection_head=codeinjection_head,
+            codeinjection_foot=codeinjection_foot,
         )
         updated = posts_api.update_post(admin_client(), post_id, fields, html=html or None)
         return _summary(updated, config().site_url)
